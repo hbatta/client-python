@@ -3,10 +3,12 @@ import re
 import json
 import time
 import pickle
+import itertools
 
 import pandas
 import numpy as np
-from datetime import datetime
+from joblib import Parallel, delayed
+from datetime import datetime, timedelta
 
 from hapiclient.util import setopts, log, warning, error
 from hapiclient.util import urlopen, urlretrieve, jsonparse
@@ -33,10 +35,10 @@ def subset(meta, params):
         if p[i] not in pm:
             error('Parameter %s is not in meta' % p[i] + '\n')
             return
-    
+
     pa = [meta['parameters'][0]]  # First parameter is always the time parameter 
 
-    params_reordered = [] # Re-ordered params
+    params_reordered = []  # Re-ordered params
     # If time parameter explicity requested, put it first in params_reordered.
     if meta['parameters'][0]['name'] in p:
         params_reordered = [meta['parameters'][0]['name']]
@@ -48,15 +50,15 @@ def subset(meta, params):
             params_reordered.append(pm[i])
     meta['parameters'] = pa
 
-    #import pdb;pdb.set_trace()
+    # import pdb;pdb.set_trace()
 
     params_reordered_str = ','.join(params_reordered)
-    
+
     if not params == params_reordered_str:
         msg = "\n  " + "Order requested: " + params
         msg = msg + "\n  " + "Order required: " + params_reordered_str
         error('Order of requested parameters does not match order of parameters in server info metadata.' + msg + '\n')
-    
+
     return meta
 
 
@@ -68,7 +70,7 @@ def cachedir(*args):
     cachdir(basedir, server) returns basedir + os.path.sep + server2dirname(server)
     """
     import tempfile
-    
+
     if len(args) == 2:
         # cachedir(base_dir, server)
         return args[0] + os.path.sep + server2dirname(args[1])
@@ -79,7 +81,7 @@ def cachedir(*args):
 
 def server2dirname(server):
     """Convert a server URL to a directory name."""
-    
+
     urld = re.sub(r"https*://", "", server)
     urld = re.sub(r'/', '_', urld)
     return urld
@@ -97,12 +99,13 @@ def request2path(*args):
 
     # url subdirectory
     urldirectory = server2dirname(args[0])
-    fname = '%s_%s_%s_%s' % (re.sub('/','_',args[1]), 
+    fname = '%s_%s_%s_%s' % (re.sub('/', '_', args[1]),
                              re.sub(',', '-', args[2]),
                              re.sub(r'-|:|\.|Z', '', args[3]),
                              re.sub(r'-|:|\.|Z', '', args[4]))
 
     return os.path.join(cachedirectory, urldirectory, fname)
+
 
 def hapiopts():
     """Return allowed options for hapi().
@@ -111,14 +114,16 @@ def hapiopts():
     """
     # Default options
     opts = {
-                'logging': False,
-                'cache': True,
-                'cachedir': cachedir(),
-                'usecache': False,
-                'server_list': 'https://github.com/hapi-server/servers/raw/master/all.txt',
-                'format': 'binary',
-                'method': 'pandas'
-            }
+        'logging': False,
+        'cache': True,
+        'cachedir': cachedir(),
+        'usecache': False,
+        'server_list': 'https://github.com/hapi-server/servers/raw/master/all.txt',
+        'format': 'binary',
+        'method': 'pandas',
+        'parallel': False,
+        'splits': 0
+    }
 
     """
     format = 'binary' is used by default and CSV used if binary is not available from server.
@@ -129,8 +134,12 @@ def hapiopts():
     CSV read methods. See test/test_hapi.py for comparison.
     This should option should be excluded from the help string.
     """
-    
+
     return opts
+
+
+def urlopen_wrapper():
+    pass
 
 
 def hapi(*args, **kwargs):
@@ -228,7 +237,7 @@ def hapi(*args, **kwargs):
 
     # Override defaults
     opts = setopts(hapiopts(), kwargs)
-    
+
     from hapiclient import __version__
     log('Running hapi.py version %s' % __version__, opts)
 
@@ -258,7 +267,7 @@ def hapi(*args, **kwargs):
         res = urlopen(url)
         meta = jsonparse(res, url)
         return meta
-    
+
     if nin == 4:
         error('A stop time is required if a start time is given.')
 
@@ -266,6 +275,50 @@ def hapi(*args, **kwargs):
         # hapi(SERVER, DATASET, PARAMETERS) or
         # hapi(SERVER, DATASET, PARAMETERS, START, STOP)
 
+        def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i):
+            data, meta = hapi(
+                SERVER,
+                DATASET,
+                PARAMETERS,
+                'T'.join(str((pSTART + (i * pDELTA))[0]).split(' ')),
+                'T'.join(str((pSTART + ((i + 1) * pDELTA))[0]).split(' '))
+            )
+            return data, meta
+
+        if opts['splits']:
+            pSTART, pSTOP = hapitime2datetime(START), hapitime2datetime(STOP)
+            pDIFF = (pSTOP - pSTART)[0]
+            pDELTA = pDIFF / opts['splits']
+
+            if opts['parallel']:
+                if pDIFF > timedelta(days=1):
+                    verbose = 0
+                    if log:
+                        verbose = 100
+                    resD, resM = zip(*Parallel(n_jobs=5, verbose=verbose, backend='threading')(
+                            delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i)
+                            for i in range(opts['splits']))
+                        )
+                data = np.array(list(itertools.chain(*resD)))
+            else:
+                resD, resM = [], []
+                if pDIFF > timedelta(days=1):
+                    for i in range(opts['splits']):
+                        log('Getting part {} of {}.'.format(i + 1, opts['splits']), opts)
+                        data, meta = nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i)
+                        resD.extend(list(data))
+                        resM.append(meta)
+                    data = np.array(resD)
+
+            meta = resM[0].copy()
+            meta['x_time.max'] = resM[-1]['x_time.max']
+            meta['x_dataFile'] = [resM[i]['x_dataFile'] for i in range(len(resM))]
+            meta['x_downloadTime'] = sum([resM[i]['x_downloadTime'] for i in range(len(resM))])
+            meta['x_readTime'] = sum([resM[i]['x_readTime'] for i in range(len(resM))])
+            meta['x_dataFileParsed'] = [resM[i]['x_dataFileParsed'] for i in range(len(resM))]
+            return data, meta
+
+        # Extract all parameters.
         if re.search(r', ', PARAMETERS):
             warning("Removing spaces after commas in given parameter list of '" + PARAMETERS + "'")
             PARAMETERS = re.sub(r',\s+', ',', PARAMETERS)
@@ -283,7 +336,7 @@ def hapi(*args, **kwargs):
         # is returned.
         fname_root = request2path(SERVER, DATASET, '', '', '', opts['cachedir'])
         fnamejson = fname_root + '.json'
-        fnamepkl  = fname_root + '.pkl'
+        fnamepkl = fname_root + '.pkl'
 
         if nin == 5:  # Data requested
             # URL to get CSV (will be used if binary response is not available)
@@ -300,7 +353,7 @@ def hapi(*args, **kwargs):
             fname_root = request2path(SERVER, DATASET, PARAMETERS, START, STOP, opts['cachedir'])
             fnamecsv = fname_root + '.csv'
             fnamebin = fname_root + '.bin'
-            fnamenpy = fname_root + '.npy'            
+            fnamenpy = fname_root + '.npy'
             fnamepklx = fname_root + ".pkl"
 
         metaFromCache = False
@@ -347,7 +400,7 @@ def hapi(*args, **kwargs):
             f = open(fnamejson, 'w')
             json.dump(meta, f, indent=4)
             f.close()
-            
+
             log('Writing %s ' % fnamepkl.replace(urld + '/', ''), opts)
             f = open(fnamepkl, 'wb')
             # protocol=2 used for Python 2.7 compatability.
@@ -366,7 +419,7 @@ def hapi(*args, **kwargs):
             # Read cached data file.
             log('Reading %s ' % fnamenpy.replace(urld + '/', ''), opts)
             f = open(fnamenpy, 'rb')
-            data = np.load(f)                    
+            data = np.load(f)
             f.close()
             # There is a possibility that the fnamenpy file existed but
             # fnamepklx was not found (b/c removed). In this case, the meta 
@@ -378,8 +431,8 @@ def hapi(*args, **kwargs):
         if not opts['format'] in cformats:
             # Check if requested format is implemented by this client.
             error('This client does not handle transport '
-                             'format "%s".  Available options: %s'
-                             % (opts['format'], ', '.join(cformats)))
+                  'format "%s".  Available options: %s'
+                  % (opts['format'], ', '.join(cformats)))
 
         # See if server supports binary
         if opts['format'] != 'csv':
@@ -390,12 +443,12 @@ def hapi(*args, **kwargs):
             if 'format' in kwargs and not kwargs['format'] in sformats:
                 warning("hapi", 'Requested transport format "%s" not avaiable '
                                 'from %s. Will use "csv". Available options: %s'
-                              % (opts['format'], SERVER, ', '.join(sformats)))        
+                        % (opts['format'], SERVER, ', '.join(sformats)))
                 opts['format'] = 'csv'
             if not 'binary' in sformats:
-                opts['format'] = 'csv'                
+                opts['format'] = 'csv'
 
-        ##################################################################
+                ##################################################################
         # Compute data type variable dt used to read HAPI response into
         # a data structure.
         pnames, psizes, dt = [], [], []
@@ -428,7 +481,7 @@ def hapi(*args, **kwargs):
                 psizes[i] = psizes[i][0]
 
             if type(psizes[i]) is list and len(psizes[i]) > 1:
-                #psizes[i] = list(reversed(psizes[i]))
+                # psizes[i] = list(reversed(psizes[i]))
                 psizes[i] = list(psizes[i])
 
             # First column of ith parameter.
@@ -497,7 +550,7 @@ def hapi(*args, **kwargs):
                 log('Writing %s to %s' % (urlbin, fnamebin.replace(urld + '/', '')), opts)
                 tic0 = time.time()
                 urlretrieve(urlbin, fnamebin)
-                toc0 = time.time()-tic0
+                toc0 = time.time() - tic0
                 log('Reading %s' % fnamebin.replace(urld + '/', ''), opts)
                 tic = time.time()
                 data = np.fromfile(fnamebin, dtype=dt)
@@ -507,7 +560,7 @@ def hapi(*args, **kwargs):
                 log('Creating buffer: %s' % urlbin, opts)
                 tic0 = time.time()
                 buff = BytesIO(urlopen(urlbin).read())
-                toc0 = time.time()-tic0
+                toc0 = time.time() - tic0
                 log('Parsing buffer.', opts)
                 tic = time.time()
                 data = np.frombuffer(buff.read(), dtype=dt)
@@ -537,7 +590,7 @@ def hapi(*args, **kwargs):
                 if opts['method'] == 'pandas':
                     # Read file into Pandas DataFrame
                     df = pandas.read_csv(fnamecsv, sep=',', header=None)
-                    
+
                     # Allocate output N-D array (It is not possible to pass dtype=dt
                     # as computed to pandas.read_csv; pandas dtype is different
                     # from numpy's dtype.)
@@ -549,7 +602,8 @@ def hapi(*args, **kwargs):
                         # In numpy 1.8.2 and Python 2.7, this throws an error
                         # for no apparent reason. Works as expected in numpy 1.10.4
                         print(cols)
-                        data[pnames[i]] = np.squeeze(np.reshape(df.values[:, np.arange(cols[i][0], cols[i][1]+1)], shape))
+                        data[pnames[i]] = np.squeeze(
+                            np.reshape(df.values[:, np.arange(cols[i][0], cols[i][1] + 1)], shape))
 
                     toc = time.time() - tic
             else:
@@ -584,7 +638,8 @@ def hapi(*args, **kwargs):
                             # so table is a 2-D numpy matrix
                             for i in range(0, len(pnames)):
                                 shape = np.append(len(data), psizes[i])
-                                data[pnames[i]] = np.squeeze(np.reshape(table[:, np.arange(cols[i][0], cols[i][1]+1)], shape))
+                                data[pnames[i]] = np.squeeze(
+                                    np.reshape(table[:, np.arange(cols[i][0], cols[i][1] + 1)], shape))
                     else:
                         # Table is not a 2-D numpy matrix.
                         # Extract each column (don't know how to do this with slicing
@@ -593,7 +648,7 @@ def hapi(*args, **kwargs):
                         # Then insert aggregated columns into N-D array 'data'.
                         for pn in range(0, len(cols)):
                             shape = np.append(len(data), psizes[pn])
-                            for c in range(cols[pn][0], cols[pn][1]+1):
+                            for c in range(cols[pn][0], cols[pn][1] + 1):
                                 if c == cols[pn][0]:  # New parameter
                                     tmp = table[table.dtype.names[c]]
                                 else:  # Aggregate
@@ -617,7 +672,8 @@ def hapi(*args, **kwargs):
                         shape = np.append(len(data), psizes[i])
                         # In numpy 1.8.2 and Python 2.7, this throws an error for no apparent reason.
                         # Works as expected in numpy 1.10.4
-                        data[pnames[i]] = np.squeeze(np.reshape(df.values[:, np.arange(cols[i][0], cols[i][1]+1)], shape))
+                        data[pnames[i]] = np.squeeze(
+                            np.reshape(df.values[:, np.arange(cols[i][0], cols[i][1] + 1)], shape))
 
                 # Any of the string parameters that do not have an associated
                 # length in the metadata will have dtype='O' (object).
@@ -646,7 +702,7 @@ def hapi(*args, **kwargs):
                     else:
                         data2[pnames[i]] = data[pnames[i]]
                         # Save memory by not copying (does this help?)
-                        #data2[pnames[i]] = np.array(data[pnames[i]],copy=False)
+                        # data2[pnames[i]] = np.array(data[pnames[i]],copy=False)
 
             toc = time.time() - tic
 
@@ -757,7 +813,7 @@ def hapitime2datetime(Time, **kwargs):
     opts = {'logging': False}
 
     opts = setopts(opts, kwargs)
-    
+
     if type(Time) == list:
         Time = np.asarray(Time)
     if type(Time) == str or type(Time) == bytes:
@@ -766,7 +822,7 @@ def hapitime2datetime(Time, **kwargs):
     if type(Time) != np.ndarray:
         error('Problem with time data.' + '\n')
         return
-    
+
     if Time.size == 0:
         error('Time array is empty.' + '\n')
         return
@@ -830,11 +886,11 @@ def hapitime2datetime(Time, **kwargs):
         # YYYY-DOY format
         fmt = "%Y-%j"
         to = 9
-        if len(Time[0]) >= 12-d:
+        if len(Time[0]) >= 12 - d:
             h = True
-        if len(Time[0]) >= 15-d:
+        if len(Time[0]) >= 15 - d:
             hm = True
-        if len(Time[0]) >= 18-d:
+        if len(Time[0]) >= 18 - d:
             hms = True
     elif re.match(r"[0-9]{4}-[0-9]{2}", Time[0]):
         # YYYY-MM-DD format
@@ -843,11 +899,11 @@ def hapitime2datetime(Time, **kwargs):
         if len(Time[0]) > 8:
             fmt = fmt + "-%d"
             to = 11
-        if len(Time[0]) >= 14-d:
+        if len(Time[0]) >= 14 - d:
             h = True
-        if len(Time[0]) >= 17-d:
+        if len(Time[0]) >= 17 - d:
             hm = True
-        if len(Time[0]) >= 20-d:
+        if len(Time[0]) >= 20 - d:
             hms = True
     else:
         # TODO: Also check for invalid time string lengths.
@@ -869,14 +925,14 @@ def hapitime2datetime(Time, **kwargs):
 
     if re.match(r".*Z$", Time[0]):
         fmt = fmt + "Z"
-    
+
     # TODO: Why not use pandas.to_datetime here with fmt?
     try:
         for i in range(0, len(Time)):
             pythonDateTime[i] = datetime.strptime(Time[i], fmt).replace(tzinfo=tzinfo)
     except:
         error('Could not parse time value ' + Time[i] + ' using ' + fmt)
-    
+
     toc = time.time() - tic
     log("Manual processing time = %.4fs, Input = %s, fmto = %s, fmt = %s\n" % (toc, Time[0], fmto, fmt), opts)
 
