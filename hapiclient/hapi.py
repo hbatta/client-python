@@ -177,6 +177,13 @@ def hapi(*args, **kwargs):
 
             `serverlist` (https://github.com/hapi-server/servers/raw/master/all.txt)
 
+            `parallel` (False) If true, make up to `n_jobs` requests to server in parallel (uses threads)
+
+            `n_jobs` (5) Maximum number of parallel requests to server. Max allowed is 5.
+
+            `n_splits` (None) By default, the requested time range is split by days and `n_jobs` days of data are requested in parallel.
+        
+            
     Returns
     -------
     result : various
@@ -285,37 +292,42 @@ def hapi(*args, **kwargs):
             )
             return data, meta
 
-        if opts['splits']:
+        if opts['n_splits']:
             pSTART, pSTOP = hapitime2datetime(START), hapitime2datetime(STOP)
             pDIFF = (pSTOP - pSTART)[0]
             pDELTA = pDIFF / opts['splits']
 
             if opts['parallel']:
-                if pDIFF > timedelta(days=1):
-                    verbose = 0
-                    if log:
-                        verbose = 100
-                    resD, resM = zip(*Parallel(n_jobs=5, verbose=verbose, backend='threading')(
-                            delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i)
-                            for i in range(opts['splits']))
-                        )
+                verbose = 0
+                if log:
+                    verbose = 100
+                # backend='processing' not working (TODO: Document error message here.)
+                resD, resM = zip(*Parallel(n_jobs=opts['n_jobs'], verbose=verbose, backend='threading')(
+                        delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i)
+                        for i in range(opts['n_splits']))
+                    )
                 data = np.array(list(itertools.chain(*resD)))
             else:
                 resD, resM = [], []
-                if pDIFF > timedelta(days=1):
-                    for i in range(opts['splits']):
-                        log('Getting part {} of {}.'.format(i + 1, opts['splits']), opts)
-                        data, meta = nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i)
-                        resD.extend(list(data))
-                        resM.append(meta)
-                    data = np.array(resD)
+                for i in range(opts['n_splits']):
+                    log('Getting part {} of {}.'.format(i + 1, opts['n_splits']), opts)
+                    data, meta = nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i)
+                    resD.extend(list(data))
+                    resM.append(meta)
+                data = np.array(resD)
 
             meta = resM[0].copy()
             meta['x_time.max'] = resM[-1]['x_time.max']
-            meta['x_dataFile'] = [resM[i]['x_dataFile'] for i in range(len(resM))]
+            meta['x_dataFile'] = None
+            meta['x_dataFiles'] = [resM[i]['x_dataFile'] for i in range(len(resM))]
             meta['x_downloadTime'] = sum([resM[i]['x_downloadTime'] for i in range(len(resM))])
+            meta['x_downloadTimes'] = [resM[i]['x_downloadTime'] for i in range(len(resM))]
             meta['x_readTime'] = sum([resM[i]['x_readTime'] for i in range(len(resM))])
-            meta['x_dataFileParsed'] = [resM[i]['x_dataFileParsed'] for i in range(len(resM))]
+            meta['x_readTimes'] = [resM[i]['x_readTime'] for i in range(len(resM))]
+            meta['x_dataFileParsed'] = None
+            meta['x_dataFilesParsed'] = [resM[i]['x_dataFileParsed'] for i in range(len(resM))]
+
+            # Remove any values before START or equal to or after STOP before returning
             return data, meta
 
         # Extract all parameters.
