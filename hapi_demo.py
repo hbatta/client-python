@@ -20,87 +20,12 @@ dt = isodate.parse_duration(meta['cadence'])
 
 
 def main():
-    # demos = [omniweb, sscweb, cdaweb, cassini, lisird]
-    # demos = [serial_requests, parallel_requests]
-    # demos = [serial_requests_long, parallel_requests_long]
-    demos = [split_request_warpper]
-
+    demos = [omniweb, sscweb, cdaweb, cassini, lisird]
     for demo in demos:
         try:
             demo()
         except Exception as e:
             print("\033[0;31mError:\033[0m " + str(e))
-
-
-def split_request_test(opts):
-    from hapiclient import hapi
-    server = 'http://hapi-server.org/servers/TestData2.0/hapi'
-    dataset = 'dataset1'
-    parameters = 'vector'
-    start = '1971-01-01T00:00:00'
-    stop = '1971-01-05T00:00:00'
-    data, meta = hapi(server, dataset, parameters, start, stop, **opts)
-
-def split_request_warpper():
-    import time
-
-    opts1 = {'logging': True, 'usecache': False, 'parallel': False}
-    opts2 = {'logging': True, 'usecache': False, 'parallel': False, 'splits': 5}
-    opts3 = {'logging': True, 'usecache': False, 'parallel': True, 'splits': 5}
-
-    for opts in [opts1, opts2, opts3]:
-        print("=" * 100)
-        tstart = time.time()
-        split_request_test(opts)
-        tend = time.time()
-        print('Time : ', tend - tstart)
-
-
-def serial_requests_long():
-    from hapiclient import hapi
-    server = 'http://hapi-server.org/servers/TestData2.0/hapi'
-    dataset = 'dataset1'
-    parameters = 'vector'
-    start = '1971-01-01T00:00:00'
-    stop = '1971-01-08T00:00:00'
-    opts = {'logging': True, 'usecache': False, 'splits': 24}
-
-    data, meta = hapi(server, dataset, parameters, start, stop, **opts)
-
-
-def parallel_requests_long():
-    from hapiclient import hapi
-    server = 'http://hapi-server.org/servers/TestData2.0/hapi'
-    dataset = 'dataset1'
-    parameters = 'vector'
-    start = '1971-01-01T00:00:00'
-    stop = '1971-01-08T00:00:00'
-    opts = {'logging': True, 'usecache': False, 'splits': 24, 'parallel': True}
-
-    data, meta = hapi(server, dataset, parameters, start, stop, **opts)
-
-
-def parallel_requests():
-    from hapiclient import hapi
-    server = 'https://cdaweb.gsfc.nasa.gov/hapi'
-    dataset = 'OMNI2_H0_MRG1HR'
-    start = '2003-09-02T00:00:00'
-    stop = '2003-12-01T00:00:00'
-    parameters = 'DST1800'
-    opts = {'logging': True, 'usecache': False, 'parallel': True, 'splits': 10}
-    data, meta = hapi(server, dataset, parameters, start, stop, **opts)
-
-
-def serial_requests():
-    from hapiclient import hapi
-
-    server = 'https://cdaweb.gsfc.nasa.gov/hapi'
-    dataset = 'OMNI2_H0_MRG1HR'
-    start = '2003-09-02T00:00:00'
-    stop = '2003-12-01T00:00:00'
-    parameters = 'DST1800'
-    opts = {'logging': True, 'usecache': False, 'splits': 10}
-    data, meta = hapi(server, dataset, parameters, start, stop, **opts)
 
 
 def omniweb():

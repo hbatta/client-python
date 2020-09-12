@@ -189,6 +189,42 @@ def test_subset_short():
     ok = ok and np.array_equal(data['vectorint'], data2['vectorint'])
     assert ok
 
+def test_split():
+
+    def compare(data1, data2, meta, title)
+        print('serial, 5 splits, no cache %5.2f ms %8.4f s' % (1000.*meta['x_readTime'], meta['x_downloadTime']))
+        assert np.array_equal(data1, data2):
+
+    from hapiclient import hapi
+    dataset = 'dataset1'
+    parameters = 'vector'
+    start = '1971-01-01T00:00:00'
+    stop = '1971-01-01T06:00:00'
+
+    opts = {'usecache': False, 'parallel': False}
+    data1, meta1 = hapi(server, dataset, parameters, start, stop, **opts)
+
+    opts = {'usecache': True, 'parallel': False}
+    data1c, meta1c = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data1c, meta1c, 'Serial, no split, cache')
+
+    opts = {'usecache': False, 'parallel': False, 'splits': 5}
+    data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data2, meta2, '....')
+
+    opts = {'usecache': True, 'parallel': False, 'splits': 5}
+    data2c, meta2c = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data2c, meta2c, '....')
+
+    opts = {'usecache': False, 'parallel': True, 'splits': 5}
+    data3, meta3 = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data3, meta3, '....')
+
+    opts = {'usecache': True, 'parallel': True, 'splits': 5}
+    data3c, meta3c = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data3c, meta3c, '....')
+
+
 @pytest.mark.long
 def test_reader_long():
     
