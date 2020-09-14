@@ -191,9 +191,9 @@ def test_subset_short():
 
 def test_split():
 
-    def compare(data1, data2, meta, title)
+    def compare(data1, data2, meta, title):
         print('serial, 5 splits, no cache %5.2f ms %8.4f s' % (1000.*meta['x_readTime'], meta['x_downloadTime']))
-        assert np.array_equal(data1, data2):
+        assert np.array_equal(data1, data2)
 
     from hapiclient import hapi
     dataset = 'dataset1'

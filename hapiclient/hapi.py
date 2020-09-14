@@ -122,7 +122,7 @@ def hapiopts():
         'format': 'binary',
         'method': 'pandas',
         'parallel': False,
-        'splits': 0
+        'n_splits': 0
     }
 
     """
@@ -295,7 +295,7 @@ def hapi(*args, **kwargs):
         if opts['n_splits']:
             pSTART, pSTOP = hapitime2datetime(START), hapitime2datetime(STOP)
             pDIFF = (pSTOP - pSTART)[0]
-            pDELTA = pDIFF / opts['splits']
+            pDELTA = pDIFF / opts['n_splits']
 
             if opts['parallel']:
                 verbose = 0
