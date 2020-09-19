@@ -282,13 +282,14 @@ def hapi(*args, **kwargs):
         # hapi(SERVER, DATASET, PARAMETERS) or
         # hapi(SERVER, DATASET, PARAMETERS, START, STOP)
 
-        def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i):
+        def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts):
             data, meta = hapi(
                 SERVER,
                 DATASET,
                 PARAMETERS,
                 'T'.join(str((pSTART + (i * pDELTA))[0]).split(' ')),
-                'T'.join(str((pSTART + ((i + 1) * pDELTA))[0]).split(' '))
+                'T'.join(str((pSTART + ((i + 1) * pDELTA))[0]).split(' ')),
+                **opts
             )
             return data, meta
 
@@ -297,21 +298,24 @@ def hapi(*args, **kwargs):
             pDIFF = (pSTOP - pSTART)[0]
             pDELTA = pDIFF / opts['n_splits']
 
+            n_splits = opts['n_splits'] 
+            opts['n_splits'] = 0
+
             if opts['parallel']:
                 verbose = 0
                 if log:
                     verbose = 100
                 # backend='processing' not working (TODO: Document error message here.)
                 resD, resM = zip(*Parallel(n_jobs=opts['n_jobs'], verbose=verbose, backend='threading')(
-                        delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i)
+                        delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts)
                         for i in range(opts['n_splits']))
                     )
                 data = np.array(list(itertools.chain(*resD)))
             else:
                 resD, resM = [], []
-                for i in range(opts['n_splits']):
-                    log('Getting part {} of {}.'.format(i + 1, opts['n_splits']), opts)
-                    data, meta = nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i)
+                for i in range(n_splits):
+                    log('Getting part {} of {}.'.format(i + 1, n_splits), opts)
+                    data, meta = nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts)
                     resD.extend(list(data))
                     resM.append(meta)
                 data = np.array(resD)
