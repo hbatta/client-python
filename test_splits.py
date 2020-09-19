@@ -2,7 +2,7 @@ from hapiclient import hapi
 
 server = 'http://hapi-server.org/servers/TestData2.0/hapi'
 dataset = 'dataset1'
-parameters = 'vector'
+parameters = 'scalar'
 start = '1971-01-01T00:00:00'
 stop = '1971-01-01T00:00:02'
 
