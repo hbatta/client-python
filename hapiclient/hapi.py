@@ -291,6 +291,7 @@ def hapi(*args, **kwargs):
                 'T'.join(str((pSTART + ((i + 1) * pDELTA))[0]).split(' ')),
                 **opts
             )
+            print(data)
             return data, meta
 
         if opts['n_splits']:
@@ -317,6 +318,12 @@ def hapi(*args, **kwargs):
                     log('Getting part {} of {}.'.format(i + 1, n_splits), opts)
                     data, meta = nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts)
                     resD.extend(list(data))
+                    print(data)
+                    print(resD)
+                    # Bug is server code. Second line from first request should
+                    # match the second request.
+                    #curl 'http://hapi-server.org/servers/TestData2.0/hapi/data?id=dataset1&parameters=vector&time.min=1971-01-01T00:00:00&time.max=1971-01-01T00:00:02'
+                    #curl 'http://hapi-server.org/servers/TestData2.0/hapi/data?id=dataset1&parameters=vector&time.min=1971-01-01T00:00:01&time.max=1971-01-01T00:00:02'
                     resM.append(meta)
                 data = np.array(resD)
 
