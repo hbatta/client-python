@@ -4,7 +4,7 @@ server = 'http://hapi-server.org/servers/TestData2.0/hapi'
 dataset = 'dataset1'
 parameters = 'vector'
 start = '1971-01-01T00:00:00'
-stop = '1971-01-01T00:00:05'
+stop = '1971-01-01T00:00:02'
 
 from hapiclient.test.readcompare import equal
 
@@ -28,7 +28,7 @@ compare(data1, data2, meta1, meta2,
         'usecache=False, parallel=False, n_splits=0',
         'usecache=False, parallel=False, n_splits=1')
 
-opts = {'usecache': False, 'parallel': False, 'n_splits': 5, 'logging': True}
+opts = {'usecache': False, 'parallel': False, 'n_splits': 2, 'logging': True}
 data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
 
 print("---")
