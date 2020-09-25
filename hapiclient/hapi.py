@@ -122,7 +122,8 @@ def hapiopts():
         'format': 'binary',
         'method': 'pandas',
         'parallel': False,
-        'n_splits': 0
+        'n_splits': 0,
+        'n_jobs': 5
     }
 
     """
@@ -291,7 +292,7 @@ def hapi(*args, **kwargs):
                 'T'.join(str((pSTART + ((i + 1) * pDELTA))[0]).split(' ')),
                 **opts
             )
-            print(data)
+            # print(data)
             return data, meta
 
         if opts['n_splits']:
@@ -307,10 +308,7 @@ def hapi(*args, **kwargs):
                 if log:
                     verbose = 100
                 # backend='processing' not working (TODO: Document error message here.)
-                resD, resM = zip(*Parallel(n_jobs=opts['n_jobs'], verbose=verbose, backend='threading')(
-                        delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts)
-                        for i in range(opts['n_splits']))
-                    )
+                resD, resM = zip(*Parallel(n_jobs=opts['n_jobs'], verbose=verbose, backend='threading')(delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts) for i in range(n_splits)))
                 data = np.array(list(itertools.chain(*resD)))
             else:
                 resD, resM = [], []
@@ -318,8 +316,8 @@ def hapi(*args, **kwargs):
                     log('Getting part {} of {}.'.format(i + 1, n_splits), opts)
                     data, meta = nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts)
                     resD.extend(list(data))
-                    print(data)
-                    print(resD)
+                    # print(data)
+                    # print(resD)
                     # Bug is server code. Second line from first request should
                     # match the second request.
                     #curl 'http://hapi-server.org/servers/TestData2.0/hapi/data?id=dataset1&parameters=vector&time.min=1971-01-01T00:00:00&time.max=1971-01-01T00:00:02'

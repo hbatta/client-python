@@ -197,7 +197,7 @@ def test_split():
 
     from hapiclient import hapi
     dataset = 'dataset1'
-    parameters = 'vector'
+    parameters = 'scalar'
     start = '1971-01-01T00:00:00'
     stop = '1971-01-01T06:00:00'
 
@@ -208,19 +208,19 @@ def test_split():
     data1c, meta1c = hapi(server, dataset, parameters, start, stop, **opts)
     compare(data1, data1c, meta1c, 'Serial, no split, cache')
 
-    opts = {'usecache': False, 'parallel': False, 'splits': 5}
+    opts = {'usecache': False, 'parallel': False, 'n_splits': 5}
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
     compare(data1, data2, meta2, '....')
 
-    opts = {'usecache': True, 'parallel': False, 'splits': 5}
+    opts = {'usecache': True, 'parallel': False, 'n_splits': 5}
     data2c, meta2c = hapi(server, dataset, parameters, start, stop, **opts)
     compare(data1, data2c, meta2c, '....')
 
-    opts = {'usecache': False, 'parallel': True, 'splits': 5}
+    opts = {'usecache': False, 'parallel': True, 'n_splits': 5}
     data3, meta3 = hapi(server, dataset, parameters, start, stop, **opts)
     compare(data1, data3, meta3, '....')
 
-    opts = {'usecache': True, 'parallel': True, 'splits': 5}
+    opts = {'usecache': True, 'parallel': True, 'n_splits': 5}
     data3c, meta3c = hapi(server, dataset, parameters, start, stop, **opts)
     compare(data1, data3c, meta3c, '....')
 
