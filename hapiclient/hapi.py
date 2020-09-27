@@ -122,7 +122,7 @@ def hapiopts():
         'format': 'binary',
         'method': 'pandas',
         'parallel': False,
-        'n_splits': 0,
+        'n_chunks': 0,
         'n_jobs': 5
     }
 
@@ -182,7 +182,7 @@ def hapi(*args, **kwargs):
 
             `n_jobs` (5) Maximum number of parallel requests to server. Max allowed is 5.
 
-            `n_splits` (None) By default, the requested time range is split by days and `n_jobs` days of data are requested in parallel.
+            `n_chunks` (None) By default, the requested time range is split by days and `n_jobs` days of data are requested in parallel.
         
             
     Returns
@@ -295,25 +295,25 @@ def hapi(*args, **kwargs):
             # print(data)
             return data, meta
 
-        if opts['n_splits']:
+        if opts['n_chunks']:
             pSTART, pSTOP = hapitime2datetime(START), hapitime2datetime(STOP)
             pDIFF = (pSTOP - pSTART)[0]
-            pDELTA = pDIFF / opts['n_splits']
+            pDELTA = pDIFF / opts['n_chunks']
 
-            n_splits = opts['n_splits'] 
-            opts['n_splits'] = 0
+            n_chunks = opts['n_chunks'] 
+            opts['n_chunks'] = 0
 
             if opts['parallel']:
                 verbose = 0
                 if log:
                     verbose = 100
                 # backend='processing' not working (TODO: Document error message here.)
-                resD, resM = zip(*Parallel(n_jobs=opts['n_jobs'], verbose=verbose, backend='threading')(delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts) for i in range(n_splits)))
+                resD, resM = zip(*Parallel(n_jobs=opts['n_jobs'], verbose=verbose, backend='threading')(delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts) for i in range(n_chunks)))
                 data = np.array(list(itertools.chain(*resD)))
             else:
                 resD, resM = [], []
-                for i in range(n_splits):
-                    log('Getting part {} of {}.'.format(i + 1, n_splits), opts)
+                for i in range(n_chunks):
+                    log('Getting part {} of {}.'.format(i + 1, n_chunks), opts)
                     data, meta = nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts)
                     resD.extend(list(data))
                     # print(data)
