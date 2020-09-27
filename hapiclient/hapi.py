@@ -4,6 +4,7 @@ import json
 import time
 import pickle
 import itertools
+import multiprocessing
 
 import pandas
 import numpy as np
@@ -122,8 +123,14 @@ def hapiopts():
         'format': 'binary',
         'method': 'pandas',
         'parallel': False,
+        'n_parallel': 5,
         'n_chunks': 0,
-        'n_jobs': 5
+
+        # Remove n_jobs and change it to n_parallel.
+        
+        'n_parallel': 5,
+        'n_jobs': 5,
+        'dt_chunk': 'infer',
     }
 
     """
@@ -141,6 +148,18 @@ def hapiopts():
 
 def urlopen_wrapper():
     pass
+
+def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts):
+    data, meta = hapi(
+        SERVER,
+        DATASET,
+        PARAMETERS,
+        'T'.join(str((pSTART + (i * pDELTA))[0]).split(' ')),
+        'T'.join(str((pSTART + ((i + 1) * pDELTA))[0]).split(' ')),
+        **opts
+    )
+    # print(data)
+    return data, meta
 
 
 def hapi(*args, **kwargs):
@@ -283,47 +302,46 @@ def hapi(*args, **kwargs):
         # hapi(SERVER, DATASET, PARAMETERS) or
         # hapi(SERVER, DATASET, PARAMETERS, START, STOP)
 
-        def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts):
-            data, meta = hapi(
-                SERVER,
-                DATASET,
-                PARAMETERS,
-                'T'.join(str((pSTART + (i * pDELTA))[0]).split(' ')),
-                'T'.join(str((pSTART + ((i + 1) * pDELTA))[0]).split(' ')),
-                **opts
-            )
-            # print(data)
-            return data, meta
-
         if opts['n_chunks']:
             pSTART, pSTOP = hapitime2datetime(START), hapitime2datetime(STOP)
             pDIFF = (pSTOP - pSTART)[0]
             pDELTA = pDIFF / opts['n_chunks']
-
             n_chunks = opts['n_chunks'] 
             opts['n_chunks'] = 0
 
-            if opts['parallel']:
-                verbose = 0
-                if log:
-                    verbose = 100
-                # backend='processing' not working (TODO: Document error message here.)
-                resD, resM = zip(*Parallel(n_jobs=opts['n_jobs'], verbose=verbose, backend='threading')(delayed(nhapi)(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts) for i in range(n_chunks)))
-                data = np.array(list(itertools.chain(*resD)))
-            else:
-                resD, resM = [], []
-                for i in range(n_chunks):
-                    log('Getting part {} of {}.'.format(i + 1, n_chunks), opts)
-                    data, meta = nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts)
-                    resD.extend(list(data))
-                    # print(data)
-                    # print(resD)
-                    # Bug is server code. Second line from first request should
-                    # match the second request.
-                    #curl 'http://hapi-server.org/servers/TestData2.0/hapi/data?id=dataset1&parameters=vector&time.min=1971-01-01T00:00:00&time.max=1971-01-01T00:00:02'
-                    #curl 'http://hapi-server.org/servers/TestData2.0/hapi/data?id=dataset1&parameters=vector&time.min=1971-01-01T00:00:01&time.max=1971-01-01T00:00:02'
-                    resM.append(meta)
-                data = np.array(resD)
+            # match the second request.
+            #curl 'http://hapi-server.org/servers/TestData2.0/hapi/data?id=dataset1&parameters=vector&time.min=1971-01-01T00:00:00&time.max=1971-01-01T00:00:02'
+            #curl 'http://hapi-server.org/servers/TestData2.0/hapi/data?id=dataset1&parameters=vector&time.min=1971-01-01T00:00:01&time.max=1971-01-01T00:00:02'
+
+            backend = 'sequential'
+            
+            if opts['parallel']:    
+                backend = 'threading'
+                # backend = 'multiprocessing'
+                # opts['n_jobs'] = multiprocessing.cpu_count() - 1
+
+            
+            log('backend = {}'.format(backend), opts)
+
+            verbose = 0
+            if log: 
+                verbose = 100
+
+            resD, resM = zip(
+                *Parallel(n_jobs=opts['n_jobs'], verbose=verbose, backend=backend)(
+                    delayed(nhapi)(
+                        SERVER, 
+                        DATASET, 
+                        PARAMETERS, 
+                        pSTART, 
+                        pDELTA, 
+                        i, 
+                        **opts
+                    ) for i in range(n_chunks)
+                )
+            )
+            
+            data = np.array(list(itertools.chain(*resD)))
 
             meta = resM[0].copy()
             meta['x_time.max'] = resM[-1]['x_time.max']
