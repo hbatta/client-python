@@ -17,8 +17,8 @@ if True:
 
 	print("---")
 	opts = {
-	    'usecache': True,
-	    'parallel': True,
+	    'usecache': False,
+	    'parallel': False,
 	    'n_chunks': 5,
 	    'cachedir': 'tmp/hapi-data/hour',
 	    'cache': True,

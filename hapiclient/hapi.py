@@ -298,12 +298,20 @@ def hapi(*args, **kwargs):
         # hapi(SERVER, DATASET, PARAMETERS) or
         # hapi(SERVER, DATASET, PARAMETERS, START, STOP)
 
+        import pdb;pdb.set_trace()
         if opts['dt_chunk'] == 'infer':
+            # TODO: Move code below which gets meta above this code.
             cadence = hapi(SERVER, DATASET, PARAMETERS, **{'dt_chunk': None})['cadence']
-            cadence = isodate.parse_duration(cadence)
-
-            if type(cadence).__name__ == 'Duration':
-                cadence = cadence.totimedelta(start=datetime.now())
+            
+            if cadence is None:
+                cadence = 'PT1M'
+                # If cadence not given, this will cause 1-day chunks to be used.
+            else:
+                cadence = isodate.parse_duration(cadence)
+    
+                if type(cadence).__name__ == 'Duration':
+                    # TODO: Document unexpected keyword argument.
+                    cadence = cadence.totimedelta(start=datetime.now())
 
             pt1s = isodate.parse_duration('PT1S')
             pt1h = isodate.parse_duration('PT1H')
@@ -318,7 +326,7 @@ def hapi(*args, **kwargs):
             elif cadence >= p1d:
                 opts['dt_chunk'] = 'P1Y'
 
-        if opts['n_chunks']:
+        if opts['n_chunks'] != 0 or opts['dt_chunk'] is not None:
             pSTART, pSTOP = hapitime2datetime(START)[0], hapitime2datetime(STOP)[0]
 
             pDELTA = isodate.parse_duration(opts['dt_chunk'])
@@ -380,6 +388,12 @@ def hapi(*args, **kwargs):
             first_chunk['Time'] = first_chunk['Time'].apply(lambda x: bytearraytodatetime(x))
             resD[0] = resD[0][first_chunk['Time'] >= hapitime2datetime(START)[0]]
 
+            # TODO: Nees to determine if 'Time' is in YYYY-DOY-.. or YYYY-MM-...
+            # format and convert START to that format before comparison. Also
+            # need to add Z to START if not there.
+            # (Will create a TestData parameter that has YYYY-DOY soon.)
+            #resD[0] = resD[resD[0]['Time'] >= bytes(START,'utf8')]
+
             if len(resD) > 1:
                 last_chunk = pandas.DataFrame(resD[-1])
                 last_chunk['Time'] = last_chunk['Time'].apply(lambda x: bytearraytodatetime(x))
@@ -387,6 +401,7 @@ def hapi(*args, **kwargs):
 
             resD = tuple(resD)
             data = np.array(list(itertools.chain(*resD)))
+            # TODO: Consider using np.concatenate((data1,data1))
 
             meta = resM[0].copy()
             meta['x_time.max'] = resM[-1]['x_time.max']
