@@ -4,6 +4,7 @@ import json
 import time
 import pickle
 import itertools
+import isodate
 import multiprocessing
 
 import pandas
@@ -125,11 +126,6 @@ def hapiopts():
         'parallel': False,
         'n_parallel': 5,
         'n_chunks': 0,
-
-        # Remove n_jobs and change it to n_parallel.
-        
-        'n_parallel': 5,
-        'n_jobs': 5,
         'dt_chunk': 'infer',
     }
 
@@ -149,16 +145,16 @@ def hapiopts():
 def urlopen_wrapper():
     pass
 
+
 def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts):
     data, meta = hapi(
         SERVER,
         DATASET,
         PARAMETERS,
-        'T'.join(str((pSTART + (i * pDELTA))[0]).split(' ')),
-        'T'.join(str((pSTART + ((i + 1) * pDELTA))[0]).split(' ')),
+        'T'.join(str((pSTART + (i * pDELTA))).split(' ')),
+        'T'.join(str((pSTART + ((i + 1) * pDELTA))).split(' ')),
         **opts
     )
-    # print(data)
     return data, meta
 
 
@@ -197,11 +193,11 @@ def hapi(*args, **kwargs):
 
             `serverlist` (https://github.com/hapi-server/servers/raw/master/all.txt)
 
-            `parallel` (False) If true, make up to `n_jobs` requests to server in parallel (uses threads)
+            `parallel` (False) If true, make up to `n_parallel` requests to server in parallel (uses threads)
 
-            `n_jobs` (5) Maximum number of parallel requests to server. Max allowed is 5.
+            `n_parallel` (5) Maximum number of parallel requests to server. Max allowed is 5.
 
-            `n_chunks` (None) By default, the requested time range is split by days and `n_jobs` days of data are requested in parallel.
+            `n_chunks` (None) By default, the requested time range is split by days and `n_parallel` days of data are requested in parallel.
         
             
     Returns
@@ -302,45 +298,94 @@ def hapi(*args, **kwargs):
         # hapi(SERVER, DATASET, PARAMETERS) or
         # hapi(SERVER, DATASET, PARAMETERS, START, STOP)
 
+        if opts['dt_chunk'] == 'infer':
+            cadence = hapi(SERVER, DATASET, PARAMETERS, **{'dt_chunk': None})['cadence']
+            cadence = isodate.parse_duration(cadence)
+
+            if type(cadence).__name__ == 'Duration':
+                cadence = cadence.totimedelta(start=datetime.now())
+
+            pt1s = isodate.parse_duration('PT1S')
+            pt1h = isodate.parse_duration('PT1H')
+            p1d = isodate.parse_duration('P1D')
+
+            if cadence < pt1s:
+                opts['dt_chunk'] = 'PT1H'
+            elif pt1s <= cadence <= pt1h:
+                opts['dt_chunk'] = 'P1D'
+            elif cadence > pt1h:
+                opts['dt_chunk'] = 'P1M'
+            elif cadence >= p1d:
+                opts['dt_chunk'] = 'P1Y'
+
         if opts['n_chunks']:
-            pSTART, pSTOP = hapitime2datetime(START), hapitime2datetime(STOP)
-            pDIFF = (pSTOP - pSTART)[0]
-            pDELTA = pDIFF / opts['n_chunks']
-            n_chunks = opts['n_chunks'] 
+            pSTART, pSTOP = hapitime2datetime(START)[0], hapitime2datetime(STOP)[0]
+
+            pDELTA = isodate.parse_duration(opts['dt_chunk'])
+
+            if opts['dt_chunk'] == 'P1Y':
+                pSTART = datetime(pSTART.year, 1, 1)
+                pSTOP = datetime(pSTOP.year+1, 1, 1)
+                opts['n_chunks'] = pSTOP.year - pSTART.year
+            elif opts['dt_chunk'] == 'P1M':
+                pSTART = datetime(pSTART.year, pSTART.month, 1)
+                pSTOP = datetime(pSTOP.year, pSTOP.month+1, 1)
+                opts['n_chunks'] = (pSTOP.year - pSTART.year) * 12 + (pSTOP.month - pSTART.month)
+            elif opts['dt_chunk'] == 'P1D':
+                pSTART = datetime.combine(pSTART.date(), datetime.min.time())
+                pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(days=1)
+                opts['n_chunks'] = (pSTOP-pSTART).days
+            elif opts['dt_chunk'] == 'PT1H':
+                pSTART = datetime.combine(pSTART.date(), datetime.min.time()) + timedelta(hours=pSTART.hour)
+                pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(hours=pSTOP.hour+1)
+                opts['n_chunks'] = int(((pSTOP-pSTART).total_seconds()/60)/60)
+
+            n_chunks = opts['n_chunks']
             opts['n_chunks'] = 0
 
-            # match the second request.
-            #curl 'http://hapi-server.org/servers/TestData2.0/hapi/data?id=dataset1&parameters=vector&time.min=1971-01-01T00:00:00&time.max=1971-01-01T00:00:02'
-            #curl 'http://hapi-server.org/servers/TestData2.0/hapi/data?id=dataset1&parameters=vector&time.min=1971-01-01T00:00:01&time.max=1971-01-01T00:00:02'
-
             backend = 'sequential'
-            
-            if opts['parallel']:    
+
+            if opts['parallel']:
                 backend = 'threading'
                 # backend = 'multiprocessing'
-                # opts['n_jobs'] = multiprocessing.cpu_count() - 1
+                # opts['n_parallel'] = multiprocessing.cpu_count() - 1
 
-            
             log('backend = {}'.format(backend), opts)
 
             verbose = 0
-            if log: 
+            if log:
                 verbose = 100
 
             resD, resM = zip(
-                *Parallel(n_jobs=opts['n_jobs'], verbose=verbose, backend=backend)(
+                *Parallel(n_jobs=opts['n_parallel'], verbose=verbose, backend=backend)(
                     delayed(nhapi)(
-                        SERVER, 
-                        DATASET, 
-                        PARAMETERS, 
-                        pSTART, 
-                        pDELTA, 
-                        i, 
+                        SERVER,
+                        DATASET,
+                        PARAMETERS,
+                        pSTART,
+                        pDELTA,
+                        i,
                         **opts
                     ) for i in range(n_chunks)
                 )
             )
-            
+
+            def bytearraytodatetime(x):
+                x = hapitime2datetime(x.decode('UTF-8'))[0]
+                x = x.replace(tzinfo=None)
+                return x
+
+            resD = list(resD)
+            first_chunk = pandas.DataFrame(resD[0])
+            first_chunk['Time'] = first_chunk['Time'].apply(lambda x: bytearraytodatetime(x))
+            resD[0] = resD[0][first_chunk['Time'] >= hapitime2datetime(START)[0]]
+
+            if len(resD) > 1:
+                last_chunk = pandas.DataFrame(resD[-1])
+                last_chunk['Time'] = last_chunk['Time'].apply(lambda x: bytearraytodatetime(x))
+                resD[-1] = resD[-1][last_chunk['Time'] < hapitime2datetime(STOP)[0]]
+
+            resD = tuple(resD)
             data = np.array(list(itertools.chain(*resD)))
 
             meta = resM[0].copy()
@@ -354,7 +399,6 @@ def hapi(*args, **kwargs):
             meta['x_dataFileParsed'] = None
             meta['x_dataFilesParsed'] = [resM[i]['x_dataFileParsed'] for i in range(len(resM))]
 
-            # Remove any values before START or equal to or after STOP before returning
             return data, meta
 
         # Extract all parameters.
