@@ -488,6 +488,7 @@ def hapi(*args, **kwargs):
         meta.update({"x_dataset": DATASET})
 
         if opts["cache"]:
+            # TODO: Move this before parallel code is called.
             if not os.path.exists(urld): os.makedirs(urld)
 
         if opts["cache"] and not metaFromCache:
