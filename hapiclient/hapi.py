@@ -298,124 +298,6 @@ def hapi(*args, **kwargs):
         # hapi(SERVER, DATASET, PARAMETERS) or
         # hapi(SERVER, DATASET, PARAMETERS, START, STOP)
 
-        import pdb;pdb.set_trace()
-        if opts['dt_chunk'] == 'infer':
-            # TODO: Move code below which gets meta above this code.
-            cadence = hapi(SERVER, DATASET, PARAMETERS, **{'dt_chunk': None})['cadence']
-            
-            if cadence is None:
-                cadence = 'PT1M'
-                # If cadence not given, this will cause 1-day chunks to be used.
-            else:
-                cadence = isodate.parse_duration(cadence)
-    
-                if type(cadence).__name__ == 'Duration':
-                    # TODO: Document unexpected keyword argument.
-                    cadence = cadence.totimedelta(start=datetime.now())
-
-            pt1s = isodate.parse_duration('PT1S')
-            pt1h = isodate.parse_duration('PT1H')
-            p1d = isodate.parse_duration('P1D')
-
-            if cadence < pt1s:
-                opts['dt_chunk'] = 'PT1H'
-            elif pt1s <= cadence <= pt1h:
-                opts['dt_chunk'] = 'P1D'
-            elif cadence > pt1h:
-                opts['dt_chunk'] = 'P1M'
-            elif cadence >= p1d:
-                opts['dt_chunk'] = 'P1Y'
-
-        if opts['n_chunks'] != 0 or opts['dt_chunk'] is not None:
-            pSTART, pSTOP = hapitime2datetime(START)[0], hapitime2datetime(STOP)[0]
-
-            pDELTA = isodate.parse_duration(opts['dt_chunk'])
-
-            if opts['dt_chunk'] == 'P1Y':
-                pSTART = datetime(pSTART.year, 1, 1)
-                pSTOP = datetime(pSTOP.year+1, 1, 1)
-                opts['n_chunks'] = pSTOP.year - pSTART.year
-            elif opts['dt_chunk'] == 'P1M':
-                pSTART = datetime(pSTART.year, pSTART.month, 1)
-                pSTOP = datetime(pSTOP.year, pSTOP.month+1, 1)
-                opts['n_chunks'] = (pSTOP.year - pSTART.year) * 12 + (pSTOP.month - pSTART.month)
-            elif opts['dt_chunk'] == 'P1D':
-                pSTART = datetime.combine(pSTART.date(), datetime.min.time())
-                pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(days=1)
-                opts['n_chunks'] = (pSTOP-pSTART).days
-            elif opts['dt_chunk'] == 'PT1H':
-                pSTART = datetime.combine(pSTART.date(), datetime.min.time()) + timedelta(hours=pSTART.hour)
-                pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(hours=pSTOP.hour+1)
-                opts['n_chunks'] = int(((pSTOP-pSTART).total_seconds()/60)/60)
-
-            n_chunks = opts['n_chunks']
-            opts['n_chunks'] = 0
-
-            backend = 'sequential'
-
-            if opts['parallel']:
-                backend = 'threading'
-                # backend = 'multiprocessing'
-                # opts['n_parallel'] = multiprocessing.cpu_count() - 1
-
-            log('backend = {}'.format(backend), opts)
-
-            verbose = 0
-            if log:
-                verbose = 100
-
-            resD, resM = zip(
-                *Parallel(n_jobs=opts['n_parallel'], verbose=verbose, backend=backend)(
-                    delayed(nhapi)(
-                        SERVER,
-                        DATASET,
-                        PARAMETERS,
-                        pSTART,
-                        pDELTA,
-                        i,
-                        **opts
-                    ) for i in range(n_chunks)
-                )
-            )
-
-            def bytearraytodatetime(x):
-                x = hapitime2datetime(x.decode('UTF-8'))[0]
-                x = x.replace(tzinfo=None)
-                return x
-
-            resD = list(resD)
-            first_chunk = pandas.DataFrame(resD[0])
-            first_chunk['Time'] = first_chunk['Time'].apply(lambda x: bytearraytodatetime(x))
-            resD[0] = resD[0][first_chunk['Time'] >= hapitime2datetime(START)[0]]
-
-            # TODO: Nees to determine if 'Time' is in YYYY-DOY-.. or YYYY-MM-...
-            # format and convert START to that format before comparison. Also
-            # need to add Z to START if not there.
-            # (Will create a TestData parameter that has YYYY-DOY soon.)
-            #resD[0] = resD[resD[0]['Time'] >= bytes(START,'utf8')]
-
-            if len(resD) > 1:
-                last_chunk = pandas.DataFrame(resD[-1])
-                last_chunk['Time'] = last_chunk['Time'].apply(lambda x: bytearraytodatetime(x))
-                resD[-1] = resD[-1][last_chunk['Time'] < hapitime2datetime(STOP)[0]]
-
-            resD = tuple(resD)
-            data = np.array(list(itertools.chain(*resD)))
-            # TODO: Consider using np.concatenate((data1,data1))
-
-            meta = resM[0].copy()
-            meta['x_time.max'] = resM[-1]['x_time.max']
-            meta['x_dataFile'] = None
-            meta['x_dataFiles'] = [resM[i]['x_dataFile'] for i in range(len(resM))]
-            meta['x_downloadTime'] = sum([resM[i]['x_downloadTime'] for i in range(len(resM))])
-            meta['x_downloadTimes'] = [resM[i]['x_downloadTime'] for i in range(len(resM))]
-            meta['x_readTime'] = sum([resM[i]['x_readTime'] for i in range(len(resM))])
-            meta['x_readTimes'] = [resM[i]['x_readTime'] for i in range(len(resM))]
-            meta['x_dataFileParsed'] = None
-            meta['x_dataFilesParsed'] = [resM[i]['x_dataFileParsed'] for i in range(len(resM))]
-
-            return data, meta
-
         # Extract all parameters.
         if re.search(r', ', PARAMETERS):
             warning("Removing spaces after commas in given parameter list of '" + PARAMETERS + "'")
@@ -443,7 +325,7 @@ def hapi(*args, **kwargs):
             # URL for binary request
             urlbin = urlcsv + '&format=binary'
 
-            # Raw CSV and HAPI Binary (no header) will be stored in .csv and 
+            # Raw CSV and HAPI Binary (no header) will be stored in .csv and
             # .bin files. Parsed response of either CSV or HAPI Binary will
             # be stored in a .npy file.
             # fnamepklx will contain additional metadata about the request
@@ -482,14 +364,138 @@ def hapi(*args, **kwargs):
             res = urlopen(urljson)
             meta = jsonparse(res, urljson)
 
-        # Add information to metdata so we can figure out request needed
+        # Add information to metadata so we can figure out request needed
         # to generated it. Will also be used for labeling plots by hapiplot().
         meta.update({"x_server": SERVER})
         meta.update({"x_dataset": DATASET})
 
         if opts["cache"]:
-            # TODO: Move this before parallel code is called.
             if not os.path.exists(urld): os.makedirs(urld)
+
+        if opts['dt_chunk'] == 'infer':
+            cadence = meta.get('cadence', None)
+
+            # If cadence not given, this will cause 1-day chunks to be used.
+            if cadence is None:
+                cadence = 'PT1M'
+            else:
+                cadence = isodate.parse_duration(cadence)
+                if type(cadence).__name__ == 'Duration':
+                    # TODO: Document unexpected keyword argument.
+                    cadence = cadence.totimedelta(start=datetime.now())
+
+            pt1s = isodate.parse_duration('PT1S')
+            pt1h = isodate.parse_duration('PT1H')
+            p1d = isodate.parse_duration('P1D')
+
+            if cadence < pt1s:
+                opts['dt_chunk'] = 'PT1H'
+            elif pt1s <= cadence <= pt1h:
+                opts['dt_chunk'] = 'P1D'
+            elif cadence > pt1h:
+                opts['dt_chunk'] = 'P1M'
+            elif cadence >= p1d:
+                opts['dt_chunk'] = 'P1Y'
+
+        # Fix this.
+        # if opts['n_chunks'] != 0 or opts['dt_chunk'] is not None:
+        if opts['n_chunks']:
+            pSTART, pSTOP = hapitime2datetime(START)[0], hapitime2datetime(STOP)[0]
+
+            pDELTA = isodate.parse_duration(opts['dt_chunk'])
+
+            if (pSTOP - pSTART) < pDELTA/2:
+                opts['n_chunks'] = None
+                opts['dt_chunk'] = None
+                return hapi(SERVER, DATASET, PARAMETERS, START, STOP, **opts)
+
+            if opts['dt_chunk'] == 'P1Y':
+                pSTART = datetime(pSTART.year, 1, 1)
+                pSTOP = datetime(pSTOP.year+1, 1, 1)
+                opts['n_chunks'] = pSTOP.year - pSTART.year
+            elif opts['dt_chunk'] == 'P1M':
+                pSTART = datetime(pSTART.year, pSTART.month, 1)
+                pSTOP = datetime(pSTOP.year, pSTOP.month+1, 1)
+                opts['n_chunks'] = (pSTOP.year - pSTART.year) * 12 + (pSTOP.month - pSTART.month)
+            elif opts['dt_chunk'] == 'P1D':
+                pSTART = datetime.combine(pSTART.date(), datetime.min.time())
+                pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(days=1)
+                opts['n_chunks'] = (pSTOP-pSTART).days
+            elif opts['dt_chunk'] == 'PT1H':
+                pSTART = datetime.combine(pSTART.date(), datetime.min.time()) + timedelta(hours=pSTART.hour)
+                pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(hours=pSTOP.hour+1)
+                opts['n_chunks'] = int(((pSTOP-pSTART).total_seconds()/60)/60)
+
+            n_chunks = opts['n_chunks']
+            opts['n_chunks'] = None
+
+            backend = 'sequential'
+
+            if opts['parallel']:
+                backend = 'threading'
+                # backend = 'multiprocessing'
+                # opts['n_parallel'] = multiprocessing.cpu_count() - 1
+
+            log('backend = {}'.format(backend), opts)
+
+            verbose = 0
+            if log:
+                verbose = 100
+
+            resD, resM = zip(
+                *Parallel(n_jobs=opts['n_parallel'], verbose=verbose, backend=backend)(
+                    delayed(nhapi)(
+                        SERVER,
+                        DATASET,
+                        PARAMETERS,
+                        pSTART,
+                        pDELTA,
+                        i,
+                        **opts
+                    ) for i in range(n_chunks)
+                )
+            )
+
+            # Determine if 'Time' is in YYYY-DOY-.. or YYYY-MM-...
+            try:
+                datetime.strptime(START.split('T')[0], '%Y-%m-%d')
+            except ValueError:
+                # format and convert START and STOP to that format before comparison.
+                tmpStart = hapitime2datetime(START)[0]
+                days = (tmpStart - datetime(year=tmpStart.year, month=1, day=1) + timedelta(days=1)).days
+                START = '{}T{}'.format('{}-{}'.format(tmpStart.year, days), START.split('T')[1])
+
+                tmpStop = hapitime2datetime(STOP)[0]
+                days = (tmpStop - datetime(year=tmpStop.year, month=1, day=1) + timedelta(days=1)).days
+                STOP = '{}T{}'.format('{}-{}'.format(tmpStop.year, days), STOP.split('T')[1])
+
+            # Also need to add Z to START if not there.
+            if 'z' not in START:
+                START = START + 'z'
+
+            if 'z' not in STOP:
+                STOP = STOP + 'z'
+
+            resD = list(resD)
+            resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
+
+            if len(resD) > 1:
+                resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'utf8')]
+
+            data = np.concatenate(resD)
+
+            meta = resM[0].copy()
+            meta['x_time.max'] = resM[-1]['x_time.max']
+            meta['x_dataFile'] = None
+            meta['x_dataFiles'] = [resM[i]['x_dataFile'] for i in range(len(resM))]
+            meta['x_downloadTime'] = sum([resM[i]['x_downloadTime'] for i in range(len(resM))])
+            meta['x_downloadTimes'] = [resM[i]['x_downloadTime'] for i in range(len(resM))]
+            meta['x_readTime'] = sum([resM[i]['x_readTime'] for i in range(len(resM))])
+            meta['x_readTimes'] = [resM[i]['x_readTime'] for i in range(len(resM))]
+            meta['x_dataFileParsed'] = None
+            meta['x_dataFilesParsed'] = [resM[i]['x_dataFileParsed'] for i in range(len(resM))]
+
+            return data, meta
 
         if opts["cache"] and not metaFromCache:
             # Cache metadata for all parameters if it was not already loaded
