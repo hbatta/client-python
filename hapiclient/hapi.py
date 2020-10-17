@@ -380,7 +380,7 @@ def hapi(*args, **kwargs):
                 cadence = 'PT1M'
             else:
                 cadence = isodate.parse_duration(cadence)
-                if type(cadence).__name__ == 'Duration':
+                if isinstance(cadence, isodate.Duration):
                     # TODO: Document unexpected keyword argument.
                     cadence = cadence.totimedelta(start=datetime.now())
 
@@ -397,8 +397,6 @@ def hapi(*args, **kwargs):
             elif cadence >= p1d:
                 opts['dt_chunk'] = 'P1Y'
 
-        # Fix this.
-        # if opts['n_chunks'] != 0 or opts['dt_chunk'] is not None:
         if opts['n_chunks']:
             pSTART, pSTOP = hapitime2datetime(START)[0], hapitime2datetime(STOP)[0]
 
@@ -433,6 +431,10 @@ def hapi(*args, **kwargs):
 
             if opts['parallel']:
                 backend = 'threading'
+
+                # Threads are best for IO tasks or tasks involving external systems because threads can combine their
+                # work more efficiently. Processes need to pickle their results to combine them which takes time.
+                
                 # backend = 'multiprocessing'
                 # opts['n_parallel'] = multiprocessing.cpu_count() - 1
 
@@ -456,25 +458,35 @@ def hapi(*args, **kwargs):
                 )
             )
 
+            ymd_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))$', x)
+            yd_re = lambda x: re.match(r'^([12]\d{3}-[0123]\d{2})$', x)
+
             # Determine if 'Time' is in YYYY-DOY-.. or YYYY-MM-...
-            try:
-                datetime.strptime(START.split('T')[0], '%Y-%m-%d')
-            except ValueError:
-                # format and convert START and STOP to that format before comparison.
-                tmpStart = hapitime2datetime(START)[0]
-                days = (tmpStart - datetime(year=tmpStart.year, month=1, day=1) + timedelta(days=1)).days
-                START = '{}T{}'.format('{}-{}'.format(tmpStart.year, days), START.split('T')[1])
+            if ymd_re(resD[0]['Time'][0].decode('UTF-8').split('T')[0]):
+                if not ymd_re(START.split('T')[0]) and yd_re(START.split('T')[0]):
+                    year, yday = START.split('T')[0].split('-')
+                    tmpStart = datetime(year=int(year), month=1, day=1) + timedelta(days=int(yday)-1)
+                    START = '{}T{}'.format('{}-{}-{}'.format(tmpStart.year, tmpStart.month, tmpStart.day), START.split('T')[1])
 
-                tmpStop = hapitime2datetime(STOP)[0]
-                days = (tmpStop - datetime(year=tmpStop.year, month=1, day=1) + timedelta(days=1)).days
-                STOP = '{}T{}'.format('{}-{}'.format(tmpStop.year, days), STOP.split('T')[1])
+                if not ymd_re(STOP.split('T')[0]) and yd_re(STOP.split('T')[0]):
+                    year, yday = STOP.split('T')[0].split('-')
+                    tmpStop = datetime(year=int(year), month=1, day=1) + timedelta(days=int(yday)-1)
+                    STOP = '{}T{}'.format('{}-{}-{}'.format(tmpStop.year, tmpStop.month, tmpStop.day), STOP.split('T')[1])
 
-            # Also need to add Z to START if not there.
-            if 'z' not in START:
-                START = START + 'z'
+            elif yd_re(resD[0]['Time'][0].decode('UTF-8').split('T')[0]):
+                if not yd_re(START.split('T')[0]) and ymd_re(START.split('T')[0]):
+                    tmpStart = datetime.strptime(START.split('T')[0], '%Y-%m-%d').timetuple()
+                    START = '{}T{}'.format('{}-{}'.format(tmpStart.tm_year, tmpStart.tm_yday), START.split('T')[1])
 
-            if 'z' not in STOP:
-                STOP = STOP + 'z'
+                if not yd_re(STOP.split('T')[0]) and ymd_re(STOP.split('T')[0]):
+                    tmpStop = datetime.strptime(STOP.split('T')[0], '%Y-%m-%d').timetuple()
+                    STOP = '{}T{}'.format('{}-{}'.format(tmpStop.tm_year, tmpStop.tm_yday), STOP.split('T')[1])
+
+            if 'Z' not in START:
+                START = START + 'Z'
+
+            if 'Z' not in STOP:
+                STOP = STOP + 'Z'
 
             resD = list(resD)
             resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
