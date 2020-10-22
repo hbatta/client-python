@@ -21,31 +21,25 @@ if True:
     opts = {
         'logging': False,
         'usecache': False,
-        'parallel': False,
         'cache': True,
-        'usecache': False,
-        'n_chunks': 1,
+        'n_chunks': None,
         'dt_chunk': 'infer',
     }
-
-#if n_chunks is not None and dt_chunk is not None:
-#    error('one may be not None')
     
     data1, meta1 = hapi(server, dataset, parameters, start, stop, **opts)
 
     opts = {
         'logging': False,
         'usecache': False,
-        'parallel': False,
         'cache': True,
-        'usecache': False,
-        'n_chunks': 0
+        'n_chunks': 1,
+        'dt_chunk': 'infer',
     }
 
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
     compare(data1, data2, meta1, meta2,
-            'usecache=False, parallel=False, dt_chunk=infer',
-            'usecache=False, parallel=False, n_chunks=0')
+            'usecache=False, dt_chunk=infer, n_chunks=None',
+            'usecache=False, dt_chunk=infer, n_chunks=1')
 
     server     = 'http://hapi-server.org/servers-dev/SSCWeb/hapi';
     dataset    = 'active';
@@ -55,16 +49,14 @@ if True:
     opts = {
         'logging': False,
         'usecache': False,
-        'parallel': False,
         'cache': True,
-        'usecache': False,
-        'n_chunks': 1,
-        'dt_chunk': 'infer',
+        'n_chunks': 3,
+        'dt_chunk': None,
     }
 
     data3, meta3 = hapi(server, dataset, parameters, start, stop, **opts)
     compare(data1, data3, meta1, meta3,
-            'usecache=False, parallel=False, dt_chunk=infer',
+            'usecache=False, dt_chunk=infer, n_chunks=None',
             'usecache=False, parallel=False, n_chunks=0')
 
 print("---")

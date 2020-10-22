@@ -129,6 +129,10 @@ def hapiopts():
         'dt_chunk': 'infer',
     }
 
+    #assert(opts['dt_chunk'] in ['infer', None, 'PT1M', 'PT1H','P1D', 'P1Y'])
+    #assert(opts['n_chunks'] is integer and > 1)
+    # Also check opther inputs
+    
     """
     format = 'binary' is used by default and CSV used if binary is not available from server.
     This should option should be excluded from the help string.
