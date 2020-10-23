@@ -125,8 +125,8 @@ def hapiopts():
         'method': 'pandas',
         'parallel': False,
         'n_parallel': 5,
-        'n_chunks': 0,
-        'dt_chunk': 'infer',
+        'n_chunks': None,
+        'dt_chunk': None,
     }
 
     #assert(opts['dt_chunk'] in ['infer', None, 'PT1M', 'PT1H','P1D', 'P1Y'])
@@ -401,10 +401,15 @@ def hapi(*args, **kwargs):
             elif cadence >= p1d:
                 opts['dt_chunk'] = 'P1Y'
 
-        if opts['n_chunks']:
+        # if opts['n_chunks']:
+        if opts['n_chunks'] is not None or opts['dt_chunk'] is not None:
             pSTART, pSTOP = hapitime2datetime(START)[0], hapitime2datetime(STOP)[0]
 
-            pDELTA = isodate.parse_duration(opts['dt_chunk'])
+            if opts.get('dt_chunk', None):
+                pDELTA = isodate.parse_duration(opts['dt_chunk'])
+            else:
+                pDIFF = pSTOP - pSTART
+                pDELTA = pDIFF / opts['n_chunks']
 
             if (pSTOP - pSTART) < pDELTA/2:
                 opts['n_chunks'] = None
@@ -430,6 +435,8 @@ def hapi(*args, **kwargs):
 
             n_chunks = opts['n_chunks']
             opts['n_chunks'] = None
+            dt_chunk = opts['dt_chunk']
+            opts['dt_chunk'] = None
 
             backend = 'sequential'
 
@@ -464,27 +471,28 @@ def hapi(*args, **kwargs):
 
             ymd_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))$', x)
             yd_re = lambda x: re.match(r'^([12]\d{3}-[0123]\d{2})$', x)
+            pad_zero = lambda num, l: '0'*(l-len(str(num))) + str(num)
 
             # Determine if 'Time' is in YYYY-DOY-.. or YYYY-MM-...
             if ymd_re(resD[0]['Time'][0].decode('UTF-8').split('T')[0]):
                 if not ymd_re(START.split('T')[0]) and yd_re(START.split('T')[0]):
                     year, yday = START.split('T')[0].split('-')
                     tmpStart = datetime(year=int(year), month=1, day=1) + timedelta(days=int(yday)-1)
-                    START = '{}T{}'.format('{}-{}-{}'.format(tmpStart.year, tmpStart.month, tmpStart.day), START.split('T')[1])
+                    START = '{}T{}'.format('{}-{}-{}'.format(tmpStart.year, pad_zero(tmpStart.month, 2), pad_zero(tmpStart.day, 2)), START.split('T')[1])
 
                 if not ymd_re(STOP.split('T')[0]) and yd_re(STOP.split('T')[0]):
                     year, yday = STOP.split('T')[0].split('-')
                     tmpStop = datetime(year=int(year), month=1, day=1) + timedelta(days=int(yday)-1)
-                    STOP = '{}T{}'.format('{}-{}-{}'.format(tmpStop.year, tmpStop.month, tmpStop.day), STOP.split('T')[1])
+                    STOP = '{}T{}'.format('{}-{}-{}'.format(tmpStop.year, pad_zero(tmpStop.month, 2), pad_zero(tmpStop.day, 2)), STOP.split('T')[1])
 
             elif yd_re(resD[0]['Time'][0].decode('UTF-8').split('T')[0]):
                 if not yd_re(START.split('T')[0]) and ymd_re(START.split('T')[0]):
                     tmpStart = datetime.strptime(START.split('T')[0], '%Y-%m-%d').timetuple()
-                    START = '{}T{}'.format('{}-{}'.format(tmpStart.tm_year, tmpStart.tm_yday), START.split('T')[1])
+                    START = '{}T{}'.format('{}-{}'.format(tmpStart.tm_year, pad_zero(tmpStart.tm_yday, 3)), START.split('T')[1])
 
                 if not yd_re(STOP.split('T')[0]) and ymd_re(STOP.split('T')[0]):
                     tmpStop = datetime.strptime(STOP.split('T')[0], '%Y-%m-%d').timetuple()
-                    STOP = '{}T{}'.format('{}-{}'.format(tmpStop.tm_year, tmpStop.tm_yday), STOP.split('T')[1])
+                    STOP = '{}T{}'.format('{}-{}'.format(tmpStop.tm_year, pad_zero(tmpStop.tm_yday, 3)), STOP.split('T')[1])
 
             if 'Z' not in START:
                 START = START + 'Z'
@@ -493,8 +501,13 @@ def hapi(*args, **kwargs):
                 STOP = STOP + 'Z'
 
             resD = list(resD)
+
+            # Bug 1
+            # if all(resD[0]['Time'] >= bytes(START, 'utf8')) == False: FAIL!
             resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
 
+            # Bug 2
+            # if all(resD[-1]['Time'] >= bytes(START, 'utf8')) == False: FAIL!
             if len(resD) > 1:
                 resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'utf8')]
 
