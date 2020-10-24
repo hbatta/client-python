@@ -198,8 +198,8 @@ def test_split():
     from hapiclient import hapi
     dataset = 'dataset1'
     parameters = 'scalar'
-    start = '1971-01-01T00:00:00'
-    stop = '1971-01-01T06:00:00'
+    start = '1971-01-01T00:00:00.000'
+    stop = '1971-01-01T06:00:00.000'
 
     opts = {'usecache': False, 'parallel': False}
     data1, meta1 = hapi(server, dataset, parameters, start, stop, **opts)
