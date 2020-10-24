@@ -3,9 +3,7 @@ import re
 import json
 import time
 import pickle
-import itertools
 import isodate
-import multiprocessing
 
 import pandas
 import numpy as np
@@ -129,10 +127,16 @@ def hapiopts():
         'dt_chunk': None,
     }
 
-    #assert(opts['dt_chunk'] in ['infer', None, 'PT1M', 'PT1H','P1D', 'P1Y'])
-    #assert(opts['n_chunks'] is integer and > 1)
-    # Also check opther inputs
-    
+    assert (opts['logging'] in [True, False])
+    assert (opts['cache'] in [True, False])
+    assert (opts['usecache'] in [True, False])
+    assert (opts['format'] in ['binary', 'CSV'])
+    assert (opts['method'] in ['pandas', 'numpy', 'pandasnolength', 'numpynolength'])
+    assert (opts['parallel'] in [True, False])
+    assert (isinstance(opts['n_parallel'], int) and opts['n_parallel'] > 1)
+    assert (opts['n_chunks'] is None or isinstance(opts['n_chunks'], int) and opts['n_chunks'] > 0)
+    assert (opts['dt_chunk'] in [None, 'infer', 'PT1M', 'PT1H', 'P1D', 'P1Y'])
+
     """
     format = 'binary' is used by default and CSV used if binary is not available from server.
     This should option should be excluded from the help string.
@@ -144,10 +148,6 @@ def hapiopts():
     """
 
     return opts
-
-
-def urlopen_wrapper():
-    pass
 
 
 def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts):
@@ -201,7 +201,49 @@ def hapi(*args, **kwargs):
 
             `n_parallel` (5) Maximum number of parallel requests to server. Max allowed is 5.
 
-            `n_chunks` (None) By default, the requested time range is split by days and `n_parallel` days of data are requested in parallel.
+            `dt_chunk` ('infer') For requests that span a time larger than the default
+                chunk size for a given dataset cadence, the client will split request
+                into chunks if `dt_chunk` is not `None` (and `n_chunks` is not `None` or greater than 1).
+                Allowed values of `dt_chunk` are 'infer', `None`, 'PT1M', 'PT1H',
+                'P1D', and 'P1Y'. The default chunk size is determined based on the
+                cadence of the dataset requested according to
+
+                    cadence < PT1S              dt_chunk='PT1H'
+                    PT1S <= cadence <= PT1H     dt_chunk='P1D'
+                    cadence > PT1H              dt_chunk='P1M'
+                    cadence >= P1D              dt_chunk='P1Y'
+
+                If the dataset does not have a cadence listed in its metadata, an
+                attempt is made to infer the cadence by requesting a small time range
+                of data and doubling the time range until 10 records are in the response.
+                The cadence used to determine the chunk size is then the average time
+                difference between records.
+
+                If requested time range is < 1/2 of chunk size, only one request is
+                made. Otherwise, start and/or stop are modified to be at hour, day,
+                month or year boundaries and requests are made for a time span of a
+                full chunk, and trimming is performed. For example,
+
+                    Cadence = PT1M and request for
+                        start/stop=1999-11-12T00:10:00/stop=1999-11-12T12:09:00
+                        Chunk size is P1D and requested time range < 1/2 of this
+                        =>  Default behavior
+                    Cadence = PT1M and request for
+                        start/stop=1999-11-12T00:10:00/1999-11-12T12:10:00
+                        Chunk size is P1D and requested time range >= 1/2 of this
+                        =>  One request with start/stop=1999-11-12/1999-11-13
+                            and trim performed
+                    Cadence = PT1M and request for
+                        start/stop=1999-11-12T00:10:00/1999-11-13T12:09:00
+                        Chunk size is P1D and requested time range > than this
+                        =>  Two requests:
+                            (1) start/stop=1999-11-12/start=1999-11-13
+                            (2) start/stop=1999-11-13/start=1999-11-14
+                            and trim performed
+
+            `n_chunks` (None) Get data by making `n_chunks` requests by splitting
+                requested time range. `dt_chunk` is ignored if `n_chunks` is not `None`.
+                Allowed values are integers > 1.
         
             
     Returns
@@ -401,37 +443,36 @@ def hapi(*args, **kwargs):
             elif cadence >= p1d:
                 opts['dt_chunk'] = 'P1Y'
 
-        # if opts['n_chunks']:
         if opts['n_chunks'] is not None or opts['dt_chunk'] is not None:
             pSTART, pSTOP = hapitime2datetime(START)[0], hapitime2datetime(STOP)[0]
 
-            if opts.get('dt_chunk', None):
+            if opts['dt_chunk']:
                 pDELTA = isodate.parse_duration(opts['dt_chunk'])
+
+                if (pSTOP - pSTART) < pDELTA / 2:
+                    opts['n_chunks'] = None
+                    opts['dt_chunk'] = None
+                    return hapi(SERVER, DATASET, PARAMETERS, START, STOP, **opts)
+
+                if opts['dt_chunk'] == 'P1Y':
+                    pSTART = datetime(pSTART.year, 1, 1)
+                    pSTOP = datetime(pSTOP.year + 1, 1, 1)
+                    opts['n_chunks'] = pSTOP.year - pSTART.year
+                elif opts['dt_chunk'] == 'P1M':
+                    pSTART = datetime(pSTART.year, pSTART.month, 1)
+                    pSTOP = datetime(pSTOP.year, pSTOP.month + 1, 1)
+                    opts['n_chunks'] = (pSTOP.year - pSTART.year) * 12 + (pSTOP.month - pSTART.month)
+                elif opts['dt_chunk'] == 'P1D':
+                    pSTART = datetime.combine(pSTART.date(), datetime.min.time())
+                    pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(days=1)
+                    opts['n_chunks'] = (pSTOP - pSTART).days
+                elif opts['dt_chunk'] == 'PT1H':
+                    pSTART = datetime.combine(pSTART.date(), datetime.min.time()) + timedelta(hours=pSTART.hour)
+                    pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(hours=pSTOP.hour + 1)
+                    opts['n_chunks'] = int(((pSTOP - pSTART).total_seconds() / 60) / 60)
             else:
                 pDIFF = pSTOP - pSTART
                 pDELTA = pDIFF / opts['n_chunks']
-
-            if (pSTOP - pSTART) < pDELTA/2:
-                opts['n_chunks'] = None
-                opts['dt_chunk'] = None
-                return hapi(SERVER, DATASET, PARAMETERS, START, STOP, **opts)
-
-            if opts['dt_chunk'] == 'P1Y':
-                pSTART = datetime(pSTART.year, 1, 1)
-                pSTOP = datetime(pSTOP.year+1, 1, 1)
-                opts['n_chunks'] = pSTOP.year - pSTART.year
-            elif opts['dt_chunk'] == 'P1M':
-                pSTART = datetime(pSTART.year, pSTART.month, 1)
-                pSTOP = datetime(pSTOP.year, pSTOP.month+1, 1)
-                opts['n_chunks'] = (pSTOP.year - pSTART.year) * 12 + (pSTOP.month - pSTART.month)
-            elif opts['dt_chunk'] == 'P1D':
-                pSTART = datetime.combine(pSTART.date(), datetime.min.time())
-                pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(days=1)
-                opts['n_chunks'] = (pSTOP-pSTART).days
-            elif opts['dt_chunk'] == 'PT1H':
-                pSTART = datetime.combine(pSTART.date(), datetime.min.time()) + timedelta(hours=pSTART.hour)
-                pSTOP = datetime.combine(pSTOP.date(), datetime.min.time()) + timedelta(hours=pSTOP.hour+1)
-                opts['n_chunks'] = int(((pSTOP-pSTART).total_seconds()/60)/60)
 
             n_chunks = opts['n_chunks']
             opts['n_chunks'] = None
@@ -452,7 +493,7 @@ def hapi(*args, **kwargs):
             log('backend = {}'.format(backend), opts)
 
             verbose = 0
-            if log:
+            if opts.get('logging'):
                 verbose = 100
 
             resD, resM = zip(
@@ -471,28 +512,28 @@ def hapi(*args, **kwargs):
 
             ymd_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))$', x)
             yd_re = lambda x: re.match(r'^([12]\d{3}-[0123]\d{2})$', x)
-            pad_zero = lambda num, l: '0'*(l-len(str(num))) + str(num)
+
 
             # Determine if 'Time' is in YYYY-DOY-.. or YYYY-MM-...
             if ymd_re(resD[0]['Time'][0].decode('UTF-8').split('T')[0]):
                 if not ymd_re(START.split('T')[0]) and yd_re(START.split('T')[0]):
                     year, yday = START.split('T')[0].split('-')
                     tmpStart = datetime(year=int(year), month=1, day=1) + timedelta(days=int(yday)-1)
-                    START = '{}T{}'.format('{}-{}-{}'.format(tmpStart.year, pad_zero(tmpStart.month, 2), pad_zero(tmpStart.day, 2)), START.split('T')[1])
+                    START = '{}T{}'.format('{}-{:02}-{:02}'.format(tmpStart.year, tmpStart.month, tmpStart.day), START.split('T')[1])
 
                 if not ymd_re(STOP.split('T')[0]) and yd_re(STOP.split('T')[0]):
                     year, yday = STOP.split('T')[0].split('-')
                     tmpStop = datetime(year=int(year), month=1, day=1) + timedelta(days=int(yday)-1)
-                    STOP = '{}T{}'.format('{}-{}-{}'.format(tmpStop.year, pad_zero(tmpStop.month, 2), pad_zero(tmpStop.day, 2)), STOP.split('T')[1])
+                    STOP = '{}T{}'.format('{}-{:02}-{:02}'.format(tmpStop.year, tmpStop.month, tmpStop.day), STOP.split('T')[1])
 
             elif yd_re(resD[0]['Time'][0].decode('UTF-8').split('T')[0]):
                 if not yd_re(START.split('T')[0]) and ymd_re(START.split('T')[0]):
                     tmpStart = datetime.strptime(START.split('T')[0], '%Y-%m-%d').timetuple()
-                    START = '{}T{}'.format('{}-{}'.format(tmpStart.tm_year, pad_zero(tmpStart.tm_yday, 3)), START.split('T')[1])
+                    START = '{}T{}'.format('{}-{:03}'.format(tmpStart.tm_year, tmpStart.tm_yday), START.split('T')[1])
 
                 if not yd_re(STOP.split('T')[0]) and ymd_re(STOP.split('T')[0]):
                     tmpStop = datetime.strptime(STOP.split('T')[0], '%Y-%m-%d').timetuple()
-                    STOP = '{}T{}'.format('{}-{}'.format(tmpStop.tm_year, pad_zero(tmpStop.tm_yday, 3)), STOP.split('T')[1])
+                    STOP = '{}T{}'.format('{}-{:03}'.format(tmpStop.tm_year, tmpStop.tm_yday), STOP.split('T')[1])
 
             if 'Z' not in START:
                 START = START + 'Z'
