@@ -1,0 +1,11 @@
+# formToMatch, givenForm, givenFormModifed
+
+## formToMatch in YYYY-MM-DD 
+## givenForm in YYYY-DOY
+2001-01, 2001-003, 2001-01-03 # ?? (or remove -03?)
+2001-01-01, 2001-003, 2001-01-03
+2001-01-01T00, 2001-003, 2001-01-03T00
+2001-01-01T00, 2001-003T00:01, 2001-01-03T00:01 # ?? (or remove :01?)
+
+# Test same as above with Z appended
+# TODO: Add leap year cases
