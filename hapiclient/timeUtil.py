@@ -12,6 +12,7 @@ DAYS_IN_MONTH = [ [ 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0 ],
 DAY_OFFSET = [ [ 0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 ],
     [ 0, 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 ] ]
 
+# @return 1 for leap years, 0 if not a leap year.
 def is_leap_year( year ):
     if year<1582 or year>2400:
         raise Exception("year must be between 1582 and 2400")
@@ -334,6 +335,86 @@ def parse_double( d, deft ):
     else:
         return float(s);
     
+# 
+# normalize the decomposed time by expressing day of year and month and day
+# of month, and moving hour="24" into the next day. This also handles day
+# increment or decrements, by:<ul>
+# <li>handle day=0 by decrementing month and adding the days in the new
+# month.
+# <li>handle day=32 by incrementing month.
+# <li>handle negative components by borrowing from the next significant.
+# </ul>
+# Note that [Y,1,dayOfYear,...] is accepted, but the result will be Y,m,d.
+# @param time the seven-component time Y,m,d,H,M,S,nanoseconds
+# 
+def normalize_time( time ) :
+    #logger.entering( "TimeUtil", "normalizeTime" )
+    while (time[3] >= 24) :
+        time[2] = time[2] + 1
+        time[3] = time[3] - 24
+    
+    if (time[6] < 0) :
+        time[5] = time[5] - 1
+        time[6] = time[6] + 1000000000
+    
+    if (time[5] < 0) :
+        time[4] = time[4] - 1; # take a minute
+        time[5] = time[5] + 60; # add 60 seconds.
+    
+    if (time[4] < 0) :
+        time[3] = time[3] - 1; # take an hour
+        time[4] = time[4] + 60; # add 60 minutes
+    
+    if (time[3] < 0) :
+        time[2] -= 1; # take a day
+        time[3] += 24; # add 24 hours
+    
+    if (time[2] < 1) :
+        time[1] = time[1] - 1; # take a month
+        if time[1]==0:
+            daysInMonth= 31
+        else:
+            daysInMonth= DAYS_IN_MONTH[ is_leap_year(time[0]), time[1] ]
+        time[2] = time[2] + daysInMonth; # add 24 hours
+    
+    if (time[1] < 1) :
+        time[0] -= 1; # take a year
+        time[1] += time[1] + 12; # add 12 months
+    
+    if (time[3] > 24) :
+        raise Exception("time[3] is greater than 24 (hours)")
+    
+    if (time[1] > 12) :
+        time[0]= time[0] + 1
+        time[1]= time[1] - 12
+    
+    if (time[1] == 12 and time[2]>31 and time[2]<62 ) :
+        time[0] = time[0] + 1
+        time[1] = 1
+        time[2] = time[2]-31
+        #logger.exiting( "TimeUtil", "normalizeTime" )
+        return
+    
+    leap = is_leap_year(time[0])
+    if (time[2] == 0) :
+        time[1] = time[1] - 1
+        if (time[1] == 0) :
+            time[0] = time[0] - 1
+            time[1] = 12
+        
+        time[2] = DAYS_IN_MONTH[leap][time[1]]
+    
+    d = DAYS_IN_MONTH[leap][time[1]]
+    while time[2] > d :
+        time[1]=time[1]+1
+        time[2] -= d
+        d = DAYS_IN_MONTH[leap][time[1]]
+        if time[1] > 12 :
+            raise Exception("time[2] is too big")
+        
+    
+    #logger.exiting( "TimeUtil", "normalizeTime" )
+
 import re
 iso8601_duration = "P((\\d+)Y)?((\\d+)M)?((\\d+)D)?(T((\\d+)H)?((\\d+)M)?((" + "\\d?\\.?\\d+" + ")S)?)?"
 iso8601_duration_pattern = re.compile(iso8601_duration)
@@ -413,8 +494,44 @@ def parse_iso8601_timerange( stringIn ):
             result[i]= stoptime[i-7]
         return result
     
+# 
+# subtract the offset from the base time.
+# 
+# @param base a time
+# @param offset offset in each component.
+# @return a time
+# 
+def subtract( base, offset) :
+    result = [None]*7
+    for i in xrange(0,7):
+        result[i] = base[i] - offset[i]
+    if (result[0] > 400) :
+        normalize_time(result)
+    
+    return result
+
+
+# 
+# add the offset to the base time. This should not be used to combine two
+# offsets, because the code has not been verified for this use.
+# 
+# @param base a time
+# @param offset offset in each component.
+# @return a time
+# 
+def add( base, offset) :
+    result = [None]*7
+    for i in xrange(0,7):
+        result[i] = base[i] + offset[i]
+    
+    normalize_time(result)
+    return result
+
+
 
 #print iso_time_to_array( '2030-04-05T00:11Z' )
 #print reformat_iso_time('2030-003T00:00Z','2030-04-05T00:11Z')
 print iso_time_to_array('now')
 print iso_time_to_array('lasthour-PT1H')
+print normalize_time_string('now')
+print reformat_iso_time('2000-01-01T00:00Z','now')
