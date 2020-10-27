@@ -187,8 +187,13 @@ def reformat_iso_time( exampleForm, time):
         return time[ 0:len(exampleForm)- 1 ] + "Z"
     else :
         return time[ 0:len(exampleForm) ]
-    
 
+# return the current time
+def now():
+    from datetime import datetime
+    n= datetime.utcnow()
+    return [ n.year, n.month, n.day, n.hour, n.minute, n.second, n.microsecond*1000 ]
+    
 # return array [ year, months, days, hours, minutes, seconds, nanoseconds ]
 # preserving the day of year notation if this was used. See the class
 # documentation for allowed time formats, which are a subset of ISO8601
@@ -218,11 +223,12 @@ def iso_time_to_array( time ) :
         remainder= None
         if ( time.startswith("now") ) :
             n= now()
-            remainder= time.substring(3)
+            remainder= time[3:]
         else :
-            p= Pattern.compile("last([a-z]+)([\\+|\\-]P.*)?")
-            m= p.matcher(time)
-            if m.matches() :
+            import re
+            p= re.compile("last([a-z]+)([\\+|\\-]P.*)?")
+            m= p.match(time)
+            if m!=None:
                 n= now()
                 unit= m.group(1)
                 remainder= m.group(2)
@@ -255,13 +261,13 @@ def iso_time_to_array( time ) :
                 raise exception("expected lastday+P1D, etc")
             
         
-        if remainder==None or remainder.length()==0 :
+        if remainder==None or len(remainder)==0 :
             return n
-        elif remainder.charAt(0)=='-' :
-            return subtract( n, parseISO8601Duration(remainder.substring(1)) )
+        elif remainder[0]=='-' :
+            return subtract( n, parseISO8601Duration(remainder[1:]) )
             
-        elif remainder.charAt(0)=='+' :
-            return add( n, parseISO8601Duration(remainder.substring(1)) )
+        elif remainder[0]=='+' :
+            return add( n, parseISO8601Duration(remainder[1:]) )
         
         return now()
         
@@ -317,3 +323,5 @@ def iso_time_to_array( time ) :
 
 #print iso_time_to_array( '2030-04-05T00:11Z' )
 #print reformat_iso_time('2030-003T00:00Z','2030-04-05T00:11Z')
+print iso_time_to_array('now')
+print iso_time_to_array('lasthour-PT1H')
