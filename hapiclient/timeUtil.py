@@ -264,10 +264,10 @@ def iso_time_to_array( time ) :
         if remainder==None or len(remainder)==0 :
             return n
         elif remainder[0]=='-' :
-            return subtract( n, parseISO8601Duration(remainder[1:]) )
+            return subtract( n, parse_iso8601_duration(remainder[1:]) )
             
         elif remainder[0]=='+' :
-            return add( n, parseISO8601Duration(remainder[1:]) )
+            return add( n,  parse_iso8601_duration(remainder[1:]) )
         
         return now()
         
@@ -320,6 +320,99 @@ def iso_time_to_array( time ) :
         normalize_time(result)
     
     return result
+
+#parse the int or return the default value
+def parse_int( s, deft ):
+    if (s == None):
+        return deft;
+    else:
+        return int(s);
+
+def parse_double( d, deft ):
+    if (d == None):
+        return deft;
+    else:
+        return float(s);
+    
+import re
+iso8601_duration = "P((\\d+)Y)?((\\d+)M)?((\\d+)D)?(T((\\d+)H)?((\\d+)M)?((" + "\\d?\\.?\\d+" + ")S)?)?"
+iso8601_duration_pattern = re.compile(iso8601_duration)
+
+# 
+# returns a 7 element array with [year,mon,day,hour,min,sec,nanos]. Note
+# this does not allow fractional day, hours or minutes! Examples
+# include:<ul>
+# <li>P1D - one day
+# <li>PT1M - one minute
+# <li>PT0.5S - 0.5 seconds
+# </ul>
+# TODO: there exists more complete code elsewhere.
+# 
+# @param stringIn theISO8601 duration.
+# @return 7-element array with [year,mon,day,hour,min,sec,nanos]
+# @throws ParseException if the string does not appear to be valid.
+# @see #iso8601duration
+# 
+# 
+def parse_iso8601_duration(stringIn):
+    m = iso8601_duration_pattern.match(stringIn)
+    if m!=None :
+        dsec = parse_double(m.group(13),0)
+        sec = int(dsec)
+        nanosec = int((dsec - sec) * 1e9)
+        return [ parse_int(m.group(2), 0), parse_int(m.group(4), 0), parse_int(m.group(6), 0),
+            parse_int(m.group(9), 0), parse_int(m.group(11), 0), sec, nanosec ]
+    else :
+        if (stringIn.contains("P") and stringIn.contains("S") and not stringIn.contains("T")) :
+            raise Exception("ISO8601 duration expected but not found.  Was the T missing before S?")
+        else :
+            raise Exception("ISO8601 duration expected but not found.")
+
+
+# 
+# parse the ISO8601 time range, like "1998-01-02/1998-01-17", into
+# start and stop times, returned in a 14 element array of ints.
+# @param stringIn
+# @return the time start and stop [ Y,m,d,H,M,S,N, Y,m,d,H,M,S,N ]
+# @throws ParseException
+# 
+def parse_iso8601_timerange( stringIn ):
+    ss = stringIn.split("/")
+    if len(ss)!=2 :
+        raise Exception("expected one slash (/) splitting start and stop times.")
+    
+    if ( len(ss[0])==0 or not ( ss[0][0].isDigit() or ss[0][0]=='P' or ss[0].startswith("now") ) ) :
+        raise Exception("first time/duration is misformatted.  Should be ISO8601 time or duration like P1D.")
+    
+    if ( len(ss[1])==0 or not ( ss[1][0].isDigit() or ss[1][0]=='P' or ss[1].startswith("now") ) ) :
+        raise Exception("second time/duration is misformatted.  Should be ISO8601 time or duration like P1D.")
+    
+    result= [None]*14
+    if ( ss[0].startswith("P") ) :
+        duration= parse_iso8601_duration(ss[0])
+        time= iso_time_to_array(ss[1])
+        for i in xrange(0,7):
+            result[i]= time[i]-duration[i]
+        for i in xrange(7,14):
+            result[i]= time[i-7]
+        return result
+    elif ( ss[1].startswith("P") ) :
+        time= iso_time_to_array(ss[0])
+        duration= parse_iso8601_duration(ss[1])
+        for i in xrange(0,7):
+            result[i]= time[i]
+        for i in xrange(7,14):
+            result[i]= time[i-7]+duration[i-7]
+        return result
+    else :
+        starttime= iso_time_to_array(ss[0])
+        stoptime=  iso_time_to_array(ss[1])
+        for i in xrange(0,7):
+            result[i]= starttime[i]
+        for i in xrange(7,14):
+            result[i]= stoptime[i-7]
+        return result
+    
 
 #print iso_time_to_array( '2030-04-05T00:11Z' )
 #print reformat_iso_time('2030-003T00:00Z','2030-04-05T00:11Z')
