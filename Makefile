@@ -23,8 +23,12 @@ ifeq ($(TRAVIS_OS_NAME),windows)
 endif
 
 
->>>>>>> 43b6d81... split requests.
 CONDA_ACTIVATE=source $(CONDA)/etc/profile.d/conda.sh; conda activate
+
+# ifeq ($(shell uname -s),MINGW64_NT-10.0-18362)
+ifeq ($(TRAVIS_OS_NAME),windows)
+	CONDA_ACTIVATE=source $(CONDA)/Scripts/activate; conda activate
+endif
 
 # Development:
 # Test hapi() data read functions using repository code:
@@ -78,18 +82,34 @@ ifeq ($(shell uname -s),Darwin)
 	CONDA_PKG=Miniconda3-latest-MacOSX-x86_64.sh
 endif
 
-condaenv: 
+
+condaenv:
+# ifeq ($(shell uname -s),MINGW64_NT-10.0-18362)
+ifeq ($(TRAVIS_OS_NAME),windows)
+	cp $(CONDA)/Library/bin/libcrypto-1_1-x64.* $(CONDA)/DLLs/
+	cp $(CONDA)/Library/bin/libssl-1_1-x64.* $(CONDA)/DLLs/
+
+# 	$(CONDA)/Scripts/conda config --set ssl_verify no
+	$(CONDA)/Scripts/conda create -y --name $(PYTHON) python=$(PYTHON_VER)
+else
 	make $(CONDA)/envs/$(PYTHON) PYTHON=$(PYTHON)
+endif
 
 $(CONDA)/envs/$(PYTHON): /tmp/$(CONDA_PKG)
 	$(CONDA_ACTIVATE); \
 		$(CONDA)/bin/conda create -y --name $(PYTHON) python=$(PYTHON_VER)
 
 /tmp/$(CONDA_PKG):
-	curl https://repo.anaconda.com/miniconda/$(CONDA_PKG) > /tmp/$(CONDA_PKG) 
+	curl https://repo.anaconda.com/miniconda/$(CONDA_PKG) > /tmp/$(CONDA_PKG)
 	bash /tmp/$(CONDA_PKG) -b -p $(CONDA)
 
 pythonw=$(PYTHON)
+
+# ifeq ($(shell uname -s),MINGW64_NT-10.0-18362)
+ifeq ($(TRAVIS_OS_NAME),windows)
+	pythonw=python
+endif
+
 ifeq ($(UNAME_S),Darwin)
 #	Use pythonw instead of python. On OS-X, this prevents "need to install python as a framework" error.
 #	The following finds the path to the binary of $(PYTHON) and replaces it with pythonw, e.g.,
@@ -101,10 +121,13 @@ endif
 # 'python setup.py develop' creates symlinks in system package directory.
 repository-test-data:
 	@make clean
+
 	make condaenv PYTHON=$(PYTHON)
+
 	#https://stackoverflow.com/questions/30306099/pip-install-editable-vs-python-setup-py-develop
 	$(CONDA_ACTIVATE) $(PYTHON); pip install pytest deepdiff joblib; pip install --editable .
 	#$(CONDA_ACTIVATE) $(PYTHON); $(PYTHON) setup.py develop | grep "Best"
+
 	$(CONDA_ACTIVATE) $(PYTHON); $(pythonw) -m pytest -v -m 'not long' hapiclient/test/test_hapi.py
 	$(CONDA_ACTIVATE) $(PYTHON); $(pythonw) -m pytest -v -m 'long' hapiclient/test/test_hapi.py
 	$(CONDA_ACTIVATE) $(PYTHON); $(pythonw) -m pytest -v hapiclient/test/test_hapitime2datetime.py
@@ -115,7 +138,7 @@ repository-test-plots:
 	make condaenv PYTHON=$(PYTHON)
 	$(CONDA_ACTIVATE) $(PYTHON); $(PYTHON) setup.py develop | grep "Best"
 # Run using pythonw instead of python only so plot windows always work
-# for programs called from command line. This is needed for 
+# for programs called from command line. This is needed for
 # OS-X, Python 3.5, and matplotlib instaled from pip.
 	$(CONDA_ACTIVATE) $(PYTHON); $(pythonw) hapi_demo.py
 
@@ -232,3 +255,5 @@ clean:
 	- @rm -f MANIFEST
 	- @rm -rf .pytest_cache/
 	- @rm -rf hapiclient.egg-info/
+	- @rm -rf /c/tools/Anaconda3/envs/python3.6/Scripts/wheel.exe*
+	- @rm -rf /c/tools/Anaconda3/envs/python3.6/vcruntime140.dll.*

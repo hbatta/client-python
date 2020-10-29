@@ -544,13 +544,28 @@ def hapi(*args, **kwargs):
             resD = list(resD)
 
             # Bug 1
+            # If the resD[0]['Time'] has no values >= START we should go and look into the next request data i.e.,
+            # resD[0+1]['Time'] and so on till you find a values which satisfies this condition.
             # if all(resD[0]['Time'] >= bytes(START, 'utf8')) == False: FAIL!
-            resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
+            # resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
+            for i in range(len(resD)):
+                filtered_resD = resD[i]['Time'] >= bytes(START, 'utf8')
+                resD[i] = resD[i][filtered_resD]
+                if any(filtered_resD):
+                    break
+
 
             # Bug 2
-            # if all(resD[-1]['Time'] >= bytes(START, 'utf8')) == False: FAIL!
+            # If the resD[-1]['Time'] has no values < STOP we should go and look into the previous request data i.e.,
+            # resD[-1-1]['Time'] and so on till you find a values which satisfies this condition.
+            # if all(resD[-1]['Time'] < bytes(START, 'utf8')) == False: FAIL!
             if len(resD) > 1:
-                resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'utf8')]
+                # resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'utf8')]
+                for i in range(len(resD) - 1, -1, -1):
+                    filtered_resD = resD[i]['Time'] < bytes(STOP, 'utf8')
+                    resD[i] = resD[i][filtered_resD]
+                    if any(filtered_resD):
+                        break
 
             data = np.concatenate(resD)
 
