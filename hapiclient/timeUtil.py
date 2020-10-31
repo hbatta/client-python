@@ -616,21 +616,66 @@ def convert_datetime_string(form_to_match, given_form):
 
 
 if __name__ == '__main__':
-    dts = ["1989", "1989-09", "1989-09-29", "1989-09-29T00", "1989-09-29T00:00", "1989-09-29T00:00:00",
-           "1989-09-29T00:00:00.000", "1989-009", "1989-009T00", "1989-009T00:00", "1989-009T00:00:00",
-           "1989-009T00:00:00.000", "1989Z", "1989-09Z", "1989-09-29Z", "1989-09-29T00Z", "1989-09-29T00:00Z",
-           "1989-09-29T00:00:00Z", "1989-09-29T00:00:00.000Z", "1989-009Z", "1989-009T00Z", "1989-009T00:00Z",
-           "1989-009T00:00:00Z", "1989-009T00:00:00.000Z"]
+    dts = [
+            "1989",
+            "1989-09",
+            "1989-09-29",
+            "1989-09-29T00",
+            "1989-09-29T01",
+            "1989-09-29T23",
+            "1989-09-29T00:00",
+            "1989-09-29T00:01",
+            "1989-09-29T00:59",
+            "1989-09-29T00:00:00",
+            "1989-09-29T00:00:01",
+            "1989-09-29T00:00:59",
+            "1989-09-29T00:00:00.0",
+            "1989-09-29T00:00:00.1",
+            "1989-09-29T00:00:00.9",
+            "1989-09-29T00:00:00.00",
+            "1989-09-29T00:00:00.01",
+            "1989-09-29T00:00:00.99",
+            "1989-09-29T00:00:00.000",
+            "1989-09-29T00:00:00.001",
+            "1989-09-29T00:00:00.999",
+            "1989-09-29T00:00:00.0000",
+            "1989-09-29T00:00:00.0001",
+            "1989-09-29T00:00:00.9999",
+            "1989-09-29T00:00:00.00000",
+            "1989-09-29T00:00:00.00001",
+            "1989-09-29T00:00:00.99999",
+            "1989-09-29T00:00:00.000000",
+            "1989-09-29T00:00:00.000001",
+            "1989-09-29T00:00:00.999999"
+        ]
 
     for i in range(len(dts)):
+        dts.append(dts[i] + "Z")
+
+    for i in range(len(dts)):
+        if "T" in dts[i]:
+            dts.append("1989-009T" + dts[i].split("T")[1])
+
+    def xprint(start, data, converted):
+        print("START           ", start)
+        print("Data            ", data)
+        print("Converted       ", converted)
+        print("-" * 100)
+
+    from hapiclient import hapitime2datetime
+    for i in range(len(dts)):
         for j in range(len(dts)):
-            print("Given     ", dts[j])
-            print("Base      ", dts[i])
-            converted_datetime = convert_datetime_string(dts[i], dts[j])
-            print("Converted ", convert_datetime_string(dts[i], dts[j]))
-            assert len(converted_datetime) == len(dts[i])
+            try:
+                converted_datetime = convert_datetime_string(dts[i], dts[j])
+                if len(converted_datetime) != len(dts[i]):
+                    xprint(dts[i], dts[j], convert_datetime_string(dts[i], dts[j]))
+                    print("Conversion Failure")
+                if hapitime2datetime(converted_datetime) != hapitime2datetime(dts[j]):
+                    xprint(dts[i], dts[j], convert_datetime_string(dts[i], dts[j]))
+                    if converted_datetime[-1] == "Z" and dts[j][-1] == "Z":
+                        print(hapitime2datetime(converted_datetime))
+                        print(hapitime2datetime(dts[j]))
+            except Exception as e:
+                xprint(dts[j], dts[i], convert_datetime_string(dts[i], dts[j]))
+                print(e)
 
-            if len(dts[j]) > len(dts[i]):
-                assert converted_datetime == dts[i]
-
-            print("-" * 100)
