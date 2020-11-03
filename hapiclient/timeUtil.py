@@ -547,8 +547,12 @@ def array_to_iso_time(dt, dt_format):
         return '{}-{:02}-{:02}T{:02}:{:02}'.format(dt[0], dt[1], dt[2], dt[3], dt[4])
     if dt_format == 'yyyy-mm-ddThh:mm:ss':
         return '{}-{:02}-{:02}T{:02}:{:02}:{:02}'.format(dt[0], dt[1], dt[2], dt[3], dt[4], dt[5])
-    if dt_format == 'yyyy-mm-ddThh:mm:ss.sss':
-        return '{}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}'.format(dt[0], dt[1], dt[2], dt[3], dt[4], dt[5], dt[6])
+
+    if '.' in dt_format and dt_format.split('.')[0] == 'yyyy-mm-ddThh:mm:ss':
+        width = len(dt_format.split('.')[-1])
+        return '{}-{:02}-{:02}T{:02}:{:02}:{:02}.{:0{width}}'.format(dt[0], dt[1], dt[2], dt[3], dt[4], dt[5],
+                                                                     (dt[6] // (10 ** (8 - width + 1))), width=width)
+
     if dt_format == 'yyyy-doy':
         return '{}-{:03}'.format(dt[0], dt[1])
     if dt_format == 'yyyy-doyThh':
@@ -557,9 +561,11 @@ def array_to_iso_time(dt, dt_format):
         return '{}-{:03}T{:02}:{:02}'.format(dt[0], day_of_year(dt[0], dt[1], dt[2]), dt[3], dt[4])
     if dt_format == 'yyyy-doyThh:mm:ss':
         return '{}-{:03}T{:02}:{:02}:{:02}'.format(dt[0], day_of_year(dt[0], dt[1], dt[2]), dt[3], dt[4], dt[5])
-    if dt_format == 'yyyy-doyThh:mm:ss.sss':
-        return '{}-{:03}T{:02}:{:02}:{:02}.{:03}'.format(dt[0], day_of_year(dt[0], dt[1], dt[2]), dt[3], dt[4], dt[5],
-                                                         dt[6])
+
+    if '.' in dt_format and dt_format.split('.')[0] == 'yyyy-doyThh:mm:ss':
+        width = len(dt_format.split('.')[-1])
+        return '{}-{:03}T{:02}:{:02}:{:02}.{:0{width}}'.format(dt[0], day_of_year(dt[0], dt[1], dt[2]), dt[3], dt[4],
+                                                               dt[5], (dt[6] // (10 ** (8 - width + 1))), width=width)
 
 
 def get_datetime_format(dateTimeString):
@@ -571,7 +577,15 @@ def get_datetime_format(dateTimeString):
     h_re = lambda x: re.match(r'^([01]\d|2[0-3])$', x)
     hm_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d)$', x)
     hms_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$', x)
-    hmsms_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{3})$', x)
+
+    hms1s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{1})$', x)
+    hms2s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{2})$', x)
+    hms3s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{3})$', x)
+    hms4s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{4})$', x)
+    hms5s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{5})$', x)
+    hms6s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{6})$', x)
+    hms7s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{7})$', x)
+    hms8s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{8})$', x)
 
     dateTimeString = dateTimeString.replace('Z', '')
     dateTimeType = ''
@@ -598,8 +612,22 @@ def get_datetime_format(dateTimeString):
             dateTimeType += 'hh:mm'
         elif hms_re(time):
             dateTimeType += 'hh:mm:ss'
-        elif hmsms_re(time):
+        elif hms1s_re(time):
+            dateTimeType += 'hh:mm:ss.s'
+        elif hms2s_re(time):
+            dateTimeType += 'hh:mm:ss.ss'
+        elif hms3s_re(time):
             dateTimeType += 'hh:mm:ss.sss'
+        elif hms4s_re(time):
+            dateTimeType += 'hh:mm:ss.ssss'
+        elif hms5s_re(time):
+            dateTimeType += 'hh:mm:ss.sssss'
+        elif hms6s_re(time):
+            dateTimeType += 'hh:mm:ss.ssssss'
+        elif hms7s_re(time):
+            dateTimeType += 'hh:mm:ss.sssssss'
+        elif hms8s_re(time):
+            dateTimeType += 'hh:mm:ss.ssssssss'
 
     return dateTimeType
 
@@ -616,45 +644,85 @@ def convert_datetime_string(form_to_match, given_form):
 
 
 if __name__ == '__main__':
-    dts = [
-            "1989",
-            "1989-09",
-            "1989-09-29",
-            "1989-09-29T00",
-            "1989-09-29T01",
-            "1989-09-29T23",
-            "1989-09-29T00:00",
-            "1989-09-29T00:01",
-            "1989-09-29T00:59",
-            "1989-09-29T00:00:00",
-            "1989-09-29T00:00:01",
-            "1989-09-29T00:00:59",
-            "1989-09-29T00:00:00.0",
-            "1989-09-29T00:00:00.1",
-            "1989-09-29T00:00:00.9",
-            "1989-09-29T00:00:00.00",
-            "1989-09-29T00:00:00.01",
-            "1989-09-29T00:00:00.99",
-            "1989-09-29T00:00:00.000",
-            "1989-09-29T00:00:00.001",
-            "1989-09-29T00:00:00.999",
-            "1989-09-29T00:00:00.0000",
-            "1989-09-29T00:00:00.0001",
-            "1989-09-29T00:00:00.9999",
-            "1989-09-29T00:00:00.00000",
-            "1989-09-29T00:00:00.00001",
-            "1989-09-29T00:00:00.99999",
-            "1989-09-29T00:00:00.000000",
-            "1989-09-29T00:00:00.000001",
-            "1989-09-29T00:00:00.999999"
-        ]
+    # dts = [
+    #         "1989",
+    #         "1989-01",
+    #         "1989-01-01",
+    #         "1989-09-29T00",
+    #         "1989-09-29T01",
+    #         "1989-09-29T23",
+    #         "1989-09-29T00:00",
+    #         "1989-09-29T00:01",
+    #         "1989-09-29T00:59",
+    #         "1989-09-29T00:00:00",
+    #         "1989-09-29T00:00:01",
+    #         "1989-09-29T00:00:59",
+    #         "1989-09-29T00:00:00.0",
+    #         "1989-09-29T00:00:00.1",
+    #         "1989-09-29T00:00:00.9",
+    #         "1989-09-29T00:00:00.00",
+    #         "1989-09-29T00:00:00.01",
+    #         "1989-09-29T00:00:00.99",
+    #         "1989-09-29T00:00:00.000",
+    #         "1989-09-29T00:00:00.001",
+    #         "1989-09-29T00:00:00.999",
+    #         "1989-09-29T00:00:00.0000",
+    #         "1989-09-29T00:00:00.0001",
+    #         "1989-09-29T00:00:00.9999",
+    #         "1989-09-29T00:00:00.00000",
+    #         "1989-09-29T00:00:00.00001",
+    #         "1989-09-29T00:00:00.99999",
+    #         "1989-09-29T00:00:00.000000",
+    #         "1989-09-29T00:00:00.000001",
+    #         "1989-09-29T00:00:00.999999"
+    #     ]
 
-    for i in range(len(dts)):
-        dts.append(dts[i] + "Z")
+    # for i in range(len(dts)):
+    #     dts.append(dts[i] + "Z")
+    #
+    # for i in range(len(dts)):
+    #     if "T" in dts[i]:
+    #         dts.append("1989-009T" + dts[i].split("T")[1])
+
+    dts = [
+        "1989",
+        "1989-01",
+        "1989-01-01",
+        "1989-01-01T00",
+        "1989-01-01T00",
+        "1989-01-01T00",
+        "1989-01-01T00:00",
+        "1989-01-01T00:00",
+        "1989-01-01T00:00",
+        "1989-01-01T00:00:00",
+        "1989-01-01T00:00:00",
+        "1989-01-01T00:00:00",
+        "1989-01-01T00:00:00.0",
+        "1989-01-01T00:00:00.0",
+        "1989-01-01T00:00:00.0",
+        "1989-01-01T00:00:00.00",
+        "1989-01-01T00:00:00.00",
+        "1989-01-01T00:00:00.00",
+        "1989-01-01T00:00:00.000",
+        "1989-01-01T00:00:00.000",
+        "1989-01-01T00:00:00.000",
+        "1989-01-01T00:00:00.0000",
+        "1989-01-01T00:00:00.0000",
+        "1989-01-01T00:00:00.0000",
+        "1989-01-01T00:00:00.00000",
+        "1989-01-01T00:00:00.00000",
+        "1989-01-01T00:00:00.00000",
+        "1989-01-01T00:00:00.000000",
+        "1989-01-01T00:00:00.000000",
+        "1989-01-01T00:00:00.000000"
+    ]
+
+    # for i in range(len(dts)):
+    #     dts.append(dts[i] + "Z")
 
     for i in range(len(dts)):
         if "T" in dts[i]:
-            dts.append("1989-009T" + dts[i].split("T")[1])
+            dts.append("1989-001T" + dts[i].split("T")[1])
 
     def xprint(start, data, converted):
         print("START           ", start)
@@ -666,16 +734,18 @@ if __name__ == '__main__':
     for i in range(len(dts)):
         for j in range(len(dts)):
             try:
-                converted_datetime = convert_datetime_string(dts[i], dts[j])
-                if len(converted_datetime) != len(dts[i]):
-                    xprint(dts[i], dts[j], convert_datetime_string(dts[i], dts[j]))
+                data = dts[i]
+                start = dts[j]
+                converted_datetime = convert_datetime_string(data, start)
+                if len(converted_datetime) != len(data):
+                    xprint(start, data, converted_datetime)
+                    convert_datetime_string(data, start)
                     print("Conversion Failure")
-                if hapitime2datetime(converted_datetime) != hapitime2datetime(dts[j]):
-                    xprint(dts[i], dts[j], convert_datetime_string(dts[i], dts[j]))
+                if hapitime2datetime(converted_datetime) != hapitime2datetime(start):
+                    xprint(dts[j], dts[i], convert_datetime_string(data, start))
                     if converted_datetime[-1] == "Z" and dts[j][-1] == "Z":
                         print(hapitime2datetime(converted_datetime))
-                        print(hapitime2datetime(dts[j]))
+                        print(hapitime2datetime(start))
             except Exception as e:
-                xprint(dts[j], dts[i], convert_datetime_string(dts[i], dts[j]))
+                xprint(dts[j], dts[i], convert_datetime_string(data, start))
                 print(e)
-

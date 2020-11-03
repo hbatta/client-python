@@ -1119,7 +1119,10 @@ def hapitime2datetime(Time, **kwargs):
     # TODO: Why not use pandas.to_datetime here with fmt?
     try:
         for i in range(0, len(Time)):
-            pythonDateTime[i] = datetime.strptime(Time[i], fmt).replace(tzinfo=tzinfo)
+            if 'Z' in fmt:
+                pythonDateTime[i] = datetime.strptime(Time[i], fmt).replace(tzinfo=tzinfo)
+            else:
+                pythonDateTime[i] = datetime.strptime(Time[i], fmt)
     except:
         error('Could not parse time value ' + Time[i] + ' using ' + fmt)
 
