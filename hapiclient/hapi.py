@@ -958,6 +958,9 @@ def hapitime2datetime(Time, **kwargs):
         data = hapi(...) # Get data
         DateTimes = hapitime2datetime(data['Time']) # Convert
 
+    All HAPI time strings must have a trailing Z. This function only checks first
+    element in Time array for compliance. If 
+
     Parameter
     ----------
     Time:
@@ -975,7 +978,7 @@ def hapitime2datetime(Time, **kwargs):
     Examples
     ----------
     All of the following return
-      array([datetime.datetime(1970, 1, 1, 0, 0)], dtype=object)
+      array([datetime.datetime(1970, 1, 1, 0, 0, tzinfo=<UTC>)], dtype=object)
 
     from hapiclient.hapi import hapitime2datetime
     import numpy as np
@@ -990,6 +993,9 @@ def hapitime2datetime(Time, **kwargs):
     hapitime2datetime('1970-01-01T00:00:00.000Z')
 
     """
+
+    # TODO: This should throw an error
+    # hapitime2datetime([['1999-001Z','1999-01Z']])
 
     from datetime import datetime
 
@@ -1031,6 +1037,9 @@ def hapitime2datetime(Time, **kwargs):
             return
 
     tic = time.time()
+
+    if (Time[0][-1] != "Z"):
+        error("HAPI Times must have trailing Z. First element of input Time array does not have trailing Z.")
 
     try:
         # Will fail if no pandas, if YYYY-DOY format and other valid ISO 8601
@@ -1116,15 +1125,19 @@ def hapitime2datetime(Time, **kwargs):
     if re.match(r".*Z$", Time[0]):
         fmt = fmt + "Z"
 
-    # TODO: Why not use pandas.to_datetime here with fmt?
+    # TODO: Will using pandas.to_datetime here with fmt work?
     try:
+        parse_error = True
         for i in range(0, len(Time)):
-            if 'Z' in fmt:
-                pythonDateTime[i] = datetime.strptime(Time[i], fmt).replace(tzinfo=tzinfo)
-            else:
-                pythonDateTime[i] = datetime.strptime(Time[i], fmt)
+            if (Time[i][-1] != "Z"):
+                parse_error = False
+                raise
+            pythonDateTime[i] = datetime.strptime(Time[i], fmt).replace(tzinfo=tzinfo)
     except:
-        error('Could not parse time value ' + Time[i] + ' using ' + fmt)
+        if parse_error:
+            error('Could not parse time value ' + Time[i] + ' using ' + fmt)
+        else:
+            error("HAPI Times must have trailing Z. Time[" + str(i) + "] = " + Time[i] + " does not have trailing Z.")
 
     toc = time.time() - tic
     log("Manual processing time = %.4fs, Input = %s, fmto = %s, fmt = %s\n" % (toc, Time[0], fmto, fmt), opts)

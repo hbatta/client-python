@@ -1,3 +1,5 @@
+import timeUtil
+
 #
 # the number of days in each month.
 #
@@ -568,7 +570,7 @@ def array_to_iso_time(dt, dt_format):
                                                                dt[5], (dt[6] // (10 ** (8 - width + 1))), width=width)
 
 
-def get_datetime_format(dateTimeString):
+def get_dt_format(dateTimeString):
     y_re = lambda x: re.match(r'^([12]\d{3})$', x)
     ym_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2]))$', x)
     ymd_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))$', x)
@@ -606,6 +608,7 @@ def get_datetime_format(dateTimeString):
 
     if time:
         dateTimeType += 'T'
+
         if h_re(time):
             dateTimeType += 'hh'
         elif hm_re(time):
@@ -632,8 +635,8 @@ def get_datetime_format(dateTimeString):
     return dateTimeType
 
 
-def convert_datetime_string(form_to_match, given_form):
-    form_to_match_format = get_datetime_format(form_to_match)
+def convert_dt_string(form_to_match, given_form):
+    form_to_match_format = get_dt_format(form_to_match)
     dt = iso_time_to_array(given_form)
     res = array_to_iso_time(dt, form_to_match_format)
 
@@ -642,170 +645,3 @@ def convert_datetime_string(form_to_match, given_form):
 
     return res
 
-def convert_datetime_string_test():
-    from hapi import hapitime2datetime
-    import random
-
-    y_re = lambda x: re.match(r'^([12]\d{3})$', x)
-    ym_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2]))$', x)
-    ymd_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))$', x)
-    ydoy_re = lambda x: re.match(r'^([12]\d{3}-[0123]\d{2})$', x)
-
-    for _ in range(100):
-
-        # conversion
-
-        # y -> ydoy
-        form_to_match = '1997-318'
-        given_form = '{}'.format(random.randint(1800, 2020))
-        given_form_modifed = convert_datetime_string(form_to_match, given_form)
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime(given_form)
-        assert bool(ydoy_re(given_form_modifed))
-
-        # ym -> ydoy
-        form_to_match = '1997-318'
-        given_form = '{}-{:02}'.format(random.randint(1800, 2020), random.randint(1, 12))
-        given_form_modifed = convert_datetime_string(form_to_match, given_form)
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime(given_form)
-        assert bool(ydoy_re(given_form_modifed))
-
-        # ymd -> ydoy
-        form_to_match = '1997-318'
-        given_form = '{}-{:02}-{:02}'.format(random.randint(1800, 2020), random.randint(1, 12), random.randint(1, 28))
-        given_form_modifed = convert_datetime_string(form_to_match, given_form)
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime(given_form)
-        assert bool(ydoy_re(given_form_modifed))
-
-        # ydoy -> y
-        form_to_match = '1997'
-        given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
-        given_form_modifed = convert_datetime_string(form_to_match, given_form)
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime(given_form.split('-')[0])
-        assert bool(y_re(given_form_modifed))
-
-        # ydoy -> ym
-        form_to_match = '1997-11'
-        given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
-        given_form_modifed = convert_datetime_string(form_to_match, given_form)
-
-        hdt = hapitime2datetime(given_form)[0]
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime('{}-{:02}'.format(hdt.year, hdt.month))
-        assert bool(ym_re(given_form_modifed))
-
-        # ydoy -> ymd
-        form_to_match = '1997-11-14'
-        given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
-        given_form_modifed = convert_datetime_string(form_to_match, given_form)
-
-        hdt = hapitime2datetime(given_form)[0]
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime('{}-{:02}-{:02}'.format(hdt.year, hdt.month, hdt.day))
-        assert bool(ymd_re(given_form_modifed))
-
-    dts = [
-        "1989",
-        "1989-01",
-        "1989-01-01",
-        "1989-01-01T00",
-        "1989-01-01T00:00",
-        "1989-01-01T00:00:00",
-        "1989-01-01T00:00:00.0",
-        "1989-01-01T00:00:00.00",
-        "1989-01-01T00:00:00.000",
-        "1989-01-01T00:00:00.0000",
-        "1989-01-01T00:00:00.00000",
-        "1989-01-01T00:00:00.000000"
-    ]
-
-    for i in range(len(dts)):
-        dts.append(dts[i] + "Z")
-
-    for i in range(len(dts)):
-        if "T" in dts[i]:
-            dts.append("1989-001T" + dts[i].split("T")[1])
-
-    # truncating
-    for i in range(len(dts)):
-        form_to_match = dts[i]
-        for j in range(i + 1, len(dts)):
-            given_form = dts[j]
-            given_form_modifed = convert_datetime_string(form_to_match, given_form)
-            assert hapitime2datetime(given_form_modifed) == hapitime2datetime(form_to_match)
-            assert given_form_modifed == form_to_match
-
-    # padding
-    dts = list(reversed(dts))
-    for i in range(len(dts)):
-        form_to_match = dts[i]
-        for j in range(i + 1, len(dts)):
-            given_form = dts[j]
-            given_form_modifed = convert_datetime_string(form_to_match, given_form)
-            assert hapitime2datetime(given_form_modifed) == hapitime2datetime(form_to_match)
-            assert given_form_modifed == form_to_match
-
-
-if __name__ == '__main__':
-    dts = [
-            "1989",
-            "1989-01",
-            "1989-01-01",
-            "1989-09-29T00",
-            "1989-09-29T01",
-            "1989-09-29T23",
-            "1989-09-29T00:00",
-            "1989-09-29T00:01",
-            "1989-09-29T00:59",
-            "1989-09-29T00:00:00",
-            "1989-09-29T00:00:01",
-            "1989-09-29T00:00:59",
-            "1989-09-29T00:00:00.0",
-            "1989-09-29T00:00:00.1",
-            "1989-09-29T00:00:00.9",
-            "1989-09-29T00:00:00.00",
-            "1989-09-29T00:00:00.01",
-            "1989-09-29T00:00:00.99",
-            "1989-09-29T00:00:00.000",
-            "1989-09-29T00:00:00.001",
-            "1989-09-29T00:00:00.999",
-            "1989-09-29T00:00:00.0000",
-            "1989-09-29T00:00:00.0001",
-            "1989-09-29T00:00:00.9999",
-            "1989-09-29T00:00:00.00000",
-            "1989-09-29T00:00:00.00001",
-            "1989-09-29T00:00:00.99999",
-            "1989-09-29T00:00:00.000000",
-            "1989-09-29T00:00:00.000001",
-            "1989-09-29T00:00:00.999999"
-        ]
-
-    for i in range(len(dts)):
-        dts.append(dts[i] + "Z")
-
-    for i in range(len(dts)):
-        if "T" in dts[i]:
-            dts.append("1989-009T" + dts[i].split("T")[1])
-
-    def xprint(start, data, converted):
-        print("START           ", start)
-        print("Data            ", data)
-        print("Converted       ", converted)
-        print("-" * 100)
-
-    from hapiclient import hapitime2datetime
-    for i in range(len(dts)):
-        for j in range(len(dts)):
-            try:
-                data = dts[i]
-                start = dts[j]
-                converted_datetime = convert_datetime_string(data, start)
-                if len(converted_datetime) != len(data):
-                    xprint(start, data, converted_datetime)
-                    convert_datetime_string(data, start)
-                    print("Conversion Failure")
-                if hapitime2datetime(converted_datetime) != hapitime2datetime(start):
-                    xprint(dts[j], dts[i], convert_datetime_string(data, start))
-                    if converted_datetime[-1] == "Z" and dts[j][-1] == "Z":
-                        print(hapitime2datetime(converted_datetime))
-                        print(hapitime2datetime(start))
-            except Exception as e:
-                xprint(dts[j], dts[i], convert_datetime_string(data, start))
-                print(e)

@@ -1,3 +1,10 @@
+# To use in program, use, e.g.,
+# from hapiclient.test.test_hapi import test_reader_short
+# test_reader_short()
+
+# To test a single function on the command line, use, e.g.,
+# python -c 'from hapiclient.test.test_hapitime2datetime import test_error_conditions;test_error_conditions(logging=True)'
+
 import pytest
 from hapiclient.hapi import hapitime2datetime
 import numpy as np
@@ -34,6 +41,41 @@ def test_parse_ndarray_of_bytes_input():
 	Time = np.array([b'1970-01-01T00:00:00.000Z'])
 	a = hapitime2datetime(Time,logging=logging)
 	assert a[0].strftime("%Y-%m-%dT%H:%M:%S.%fZ") == expected
+
+def test_error_conditions(logging=logging):
+	from hapiclient import HAPIError
+
+	Times = [
+				['1999Z','1999'],
+				['1999-001Z','1999-001'],
+				['1999-001T00Z','1999-001T00'],
+				['1999-01Z','1999-01'],
+				['1999-01-01Z','1999-01-01'],
+				['1999-01-01T00Z','1999-01-01T00'],
+				['1999-01-01T00:00Z','1999-01-01T00:00'],
+				['1999-01-01T00:00Z','1999-01-01T00:00:00']
+			]
+
+	for Time in Times:
+		if logging:
+			print("Checking that hapitime2datetime(" + str(Time) + ") throws HAPIError")
+		try:
+			hapitime2datetime(Time)
+		except HAPIError:
+			pass
+		else:
+			assert False, "HAPIError not raised for hapitime2datetime(" + str(Time) + ")."
+
+	for Time in Times:
+		time = Time[0][0:-1] # Remove Z
+		if logging:
+			print("Checking that hapitime2datetime(" + str(time) + ") throws HAPIError")
+		try:
+			hapitime2datetime(time)
+		except HAPIError:
+			pass
+		else:
+			assert False, "HAPIError not raised for hapitime2datetime(" + str(Time) + ")."
 
 ##################################################################
 # Known cases where pandas fails and manual parsing needed.
