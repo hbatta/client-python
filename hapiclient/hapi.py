@@ -301,8 +301,14 @@ def hapi(*args, **kwargs):
         PARAMETERS = args[2]
     if nin > 3:
         START = args[3]
+        if START[-1] != 'Z':
+            # TODO: Consider warning.
+            START = START + 'Z'
     if nin > 4:
         STOP = args[4]
+        if STOP[-1] != 'Z':
+            # TODO: Consider warning.
+            STOP = STOP + 'Z'
 
     # Override defaults
     opts = setopts(hapiopts(), kwargs)

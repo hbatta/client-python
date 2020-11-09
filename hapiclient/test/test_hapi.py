@@ -14,6 +14,9 @@ server = 'http://hapi-server.org/servers/TestData2.0/hapi'
 # from hapiclient.test.test_hapi import test_reader_short
 # test_reader_short()
 
+# To test a single function on the command line, use, e.g.,
+# python -c 'from hapiclient.test.test_hapi import test_split;test_split(logging=True)'
+
 def writepickle(fname, var):
     print("!!!!!!!!!!!!!!")
     print("Writing " + fname)
@@ -189,40 +192,6 @@ def test_subset_short():
     ok = ok and np.array_equal(data['vectorint'], data2['vectorint'])
     assert ok
 
-def test_split():
-
-    def compare(data1, data2, meta, title):
-        print('serial, 5 splits, no cache %5.2f ms %8.4f s' % (1000.*meta['x_readTime'], meta['x_downloadTime']))
-        assert np.array_equal(data1, data2)
-
-    from hapiclient import hapi
-    dataset = 'dataset1'
-    parameters = 'scalar'
-    start = '1971-01-01T00:00:00.000'
-    stop = '1971-01-01T06:00:00.000'
-
-    opts = {'usecache': False, 'parallel': False}
-    data1, meta1 = hapi(server, dataset, parameters, start, stop, **opts)
-
-    opts = {'usecache': True, 'parallel': False}
-    data1c, meta1c = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data1c, meta1c, 'Serial, no split, cache')
-
-    opts = {'usecache': False, 'parallel': False, 'n_chunks': 5}
-    data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2, meta2, '....')
-
-    opts = {'usecache': True, 'parallel': False, 'n_chunks': 5}
-    data2c, meta2c = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2c, meta2c, '....')
-
-    opts = {'usecache': False, 'parallel': True, 'n_chunks': 5}
-    data3, meta3 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data3, meta3, '....')
-
-    opts = {'usecache': True, 'parallel': True, 'n_chunks': 5}
-    data3c, meta3c = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data3c, meta3c, '....')
 
 
 @pytest.mark.long

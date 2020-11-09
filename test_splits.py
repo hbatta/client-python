@@ -2,16 +2,21 @@ from hapiclient import hapi
 from hapiclient.test.readcompare import equal
 
 
+logging = True
+
 def compare(data1, data2, meta1, meta2, title1, title2):
-    print('%s %5.2f ms %8.4f s' % (title1, 1000. * meta1['x_readTime'], meta1['x_downloadTime']))
-    print('%s %5.2f ms %8.4f s' % (title2, 1000. * meta2['x_readTime'], meta2['x_downloadTime']))
+    if logging:
+        print('_'*80)
+        print('split test 1: %s' % title1)
+        print('split test 2: %s' % title2)
+        print('x_readTime1 = %5.2f ms x_downloadTime2 = %8.4f s' % (1000. * meta1['x_readTime'], meta1['x_downloadTime']))
+        print('x_readTime2 = %5.2f ms x_downloadTime2 = %8.4f s' % (1000. * meta2['x_readTime'], meta2['x_downloadTime']))
     assert equal(data1, data2)
 
 
 server = 'http://hapi-server.org/servers/TestData2.0/hapi'
 dataset = 'dataset1'
 parameters = 'scalar'
-
 
 # test_year
 if False:
@@ -24,7 +29,7 @@ if False:
     opts = {'usecache': False, 'parallel': False, 'cache': False}
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
 
-    compare(data1, data2, meta1, meta2, 'split request dt_chunk=P1Y', 'request')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=P1Y', 'parallel=False')
 
 # test_month
 if False:
@@ -37,7 +42,7 @@ if False:
     opts = {'usecache': False, 'parallel': False, 'cache': False}
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
 
-    compare(data1, data2, meta1, meta2, 'split request dt_chunk=P1M', 'request')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=P1M', 'parallel=False')
 
 
 # test_day
@@ -51,7 +56,7 @@ if False:
     opts = {'usecache': False, 'parallel': False, 'cache': False}
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
 
-    compare(data1, data2, meta1, meta2, 'split request dt_chunk=P1D', 'request')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=P1D', 'parallel=False')
 
 
 # test_hour
@@ -65,7 +70,7 @@ if True:
     opts = {'usecache': False, 'parallel': False, 'cache': False}
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
 
-    compare(data1, data2, meta1, meta2, 'split request dt_chunk=PT1H', 'request')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=PT1H', 'parallel=False')
 
 
 # test_half
@@ -78,7 +83,7 @@ if True:
     opts = {'usecache': True, 'parallel': False, 'cache': True}
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
 
-    compare(data1, data2, meta1, meta2, 'split request time range is < 1/2 of chunk size', 'request')
+    compare(data1, data2, meta1, meta2, 'time range is < 1/2 of chunk size', 'parallel=False')
 
 # test_datatypes
 if True:
@@ -92,27 +97,29 @@ if True:
     start = '1989-09-29T00:00:00.000Z'
     stop = '1989-10-01T00:00:00.000Z'
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2, meta1, meta2, 'request', 'split request, start:ymd stop:ymd, data:ymd')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=None', 'dt_chunk=infer; start:ymd stop:ymd, data:ymd')
 
     # 2
     start = '1989-09-29T00:00:00.000Z'
     stop = '1989-274T00:00:00.000Z'
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2, meta1, meta2, 'request', 'split request, start:ymd stop:ydoy, data:ymd')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=None', 'dt_chunk=infer; start:ymd stop:ydoy, data:ymd')
 
     # 3
     start = '1989-272T00:00:00.000Z'
     stop = '1989-10-01T00:00:00.000Z'
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2, meta1, meta2, 'request', 'split request, start:ydoy stop:ymd, data:ymd')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=None', 'dt_chunk=infer; start:ydoy stop:ymd, data:ymd')
 
     # 4
     start = '1989-272T00:00:00.000Z'
     stop = '1989-274T00:00:00.000Z'
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2, meta1, meta2, 'request', 'split request, start:ydoy stop:ydoy, data:ymd')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=None', 'dt_chunk=infer; start:ydoy stop:ydoy, data:ymd')
 
     # ==================================================================================================================
+    # Only server that serves data in YYYY-DOY format. Change to TestData server when it has a data
+    # set served in YYYY-DOY format.
     server = 'http://hapi-server.org/servers-dev/SSCWeb/hapi'
     dataset = 'active'
     parameters = 'X_TOD'
@@ -128,22 +135,22 @@ if True:
     start = '1989-09-29T00:00:00.000Z'
     stop = '1989-10-01T00:00:00.000Z'
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2, meta1, meta2, 'request', 'split request, start:ymd stop:ymd, data:ydoy')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=None', 'dt_chunk=infer; start:ymd stop:ymd, data:ydoy')
 
     # 2
     start = '1989-09-29T00:00:00.000Z'
     stop = '1989-274T00:00:00.000Z'
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2, meta1, meta2, 'request', 'split request, start:ymd stop:ydoy, data:ydoy')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=None', 'dt_chunk=infer; start:ymd stop:ydoy, data:ydoy')
 
     # 3
     start = '1989-272T00:00:00.000Z'
     stop = '1989-10-01T00:00:00.000Z'
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2, meta1, meta2, 'request', 'split request, start:ydoy stop:ymd, data:ydoy')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=None', 'dt_chunk=infer; start:ydoy stop:ymd, data:ydoy')
 
     # 4
     start = '1989-272T00:00:00.000Z'
     stop = '1989-274T00:00:00.000Z'
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
-    compare(data1, data2, meta1, meta2, 'request', 'split request, start:ydoy stop:ydoy, data:ydoy')
+    compare(data1, data2, meta1, meta2, 'dt_chunk=None', 'dt_chunk=infer; start:ydoy stop:ydoy, data:ydoy')
