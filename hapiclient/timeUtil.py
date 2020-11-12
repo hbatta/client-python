@@ -551,9 +551,14 @@ def array_to_iso_time(dt, dt_format):
         return '{}-{:02}-{:02}T{:02}:{:02}:{:02}'.format(dt[0], dt[1], dt[2], dt[3], dt[4], dt[5])
 
     if '.' in dt_format and dt_format.split('.')[0] == 'yyyy-mm-ddThh:mm:ss':
-        width = len(dt_format.split('.')[-1])
-        return '{}-{:02}-{:02}T{:02}:{:02}:{:02}.{:0{width}}'.format(dt[0], dt[1], dt[2], dt[3], dt[4], dt[5],
-                                                                     (dt[6] // (10 ** (8 - width + 1))), width=width)
+        width = int(dt_format.split('.')[-1])
+        return '{}-{:02}-{:02}T{:02}:{:02}:{:02}.{:0{width}}'\
+            .format(
+                dt[0], dt[1], dt[2],               # Year, Month, Day
+                dt[3], dt[4], dt[5],               # Hour, Minute, Second
+                dt[6] // (10 ** (8 - width + 1)),  # Nano second to given fraction of second format
+                width=width
+            )
 
     if dt_format == 'yyyy-doy':
         return '{}-{:03}'.format(dt[0], day_of_year(dt[0], dt[1], dt[2]))
@@ -565,9 +570,15 @@ def array_to_iso_time(dt, dt_format):
         return '{}-{:03}T{:02}:{:02}:{:02}'.format(dt[0], day_of_year(dt[0], dt[1], dt[2]), dt[3], dt[4], dt[5])
 
     if '.' in dt_format and dt_format.split('.')[0] == 'yyyy-doyThh:mm:ss':
-        width = len(dt_format.split('.')[-1])
-        return '{}-{:03}T{:02}:{:02}:{:02}.{:0{width}}'.format(dt[0], day_of_year(dt[0], dt[1], dt[2]), dt[3], dt[4],
-                                                               dt[5], (dt[6] // (10 ** (8 - width + 1))), width=width)
+        width = int(dt_format.split('.')[-1])
+        return '{}-{:03}T{:02}:{:02}:{:02}.{:0{width}}'\
+            .format(
+                dt[0],                             # year
+                day_of_year(dt[0], dt[1], dt[2]),  # day of year
+                dt[3], dt[4], dt[5],               # Hour, Minute, Second
+                dt[6] // (10 ** (9 - width)),      # Nano second to given fraction of second format
+                width=width
+            )
 
 
 def get_dt_format(dateTimeString):
@@ -579,15 +590,7 @@ def get_dt_format(dateTimeString):
     h_re = lambda x: re.match(r'^([01]\d|2[0-3])$', x)
     hm_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d)$', x)
     hms_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$', x)
-
-    hms1s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{1})$', x)
-    hms2s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{2})$', x)
-    hms3s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{3})$', x)
-    hms4s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{4})$', x)
-    hms5s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{5})$', x)
-    hms6s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{6})$', x)
-    hms7s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{7})$', x)
-    hms8s_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{8})$', x)
+    hmsns_re = lambda x: re.match(r'^([01]\d|2[0-3]):([0-5]\d):([0-5]\d|60).(\d{1,9})$', x)
 
     dateTimeString = dateTimeString.replace('Z', '')
     dateTimeType = ''
@@ -615,22 +618,8 @@ def get_dt_format(dateTimeString):
             dateTimeType += 'hh:mm'
         elif hms_re(time):
             dateTimeType += 'hh:mm:ss'
-        elif hms1s_re(time):
-            dateTimeType += 'hh:mm:ss.s'
-        elif hms2s_re(time):
-            dateTimeType += 'hh:mm:ss.ss'
-        elif hms3s_re(time):
-            dateTimeType += 'hh:mm:ss.sss'
-        elif hms4s_re(time):
-            dateTimeType += 'hh:mm:ss.ssss'
-        elif hms5s_re(time):
-            dateTimeType += 'hh:mm:ss.sssss'
-        elif hms6s_re(time):
-            dateTimeType += 'hh:mm:ss.ssssss'
-        elif hms7s_re(time):
-            dateTimeType += 'hh:mm:ss.sssssss'
-        elif hms8s_re(time):
-            dateTimeType += 'hh:mm:ss.ssssssss'
+        elif hmsns_re(time):
+            dateTimeType += 'hh:mm:ss.{}'.format(len(time.split('.')[-1]))
 
     return dateTimeType
 

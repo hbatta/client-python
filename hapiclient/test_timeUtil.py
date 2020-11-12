@@ -12,17 +12,18 @@ def test_convert_dt_string1(logging=False):
 
     for _ in range(10):
 
+        random.seed(10)
+        padz = lambda x: x if 'Z' in x else x + 'Z'
+
         # conversion
 
-        # TODO: Set random seed so test deterministic
-        
         # y -> ydoy
         form_to_match = '1997-318'
         given_form = '{}'.format(random.randint(1800, 2020))
         given_form_modifed = convert_dt_string(form_to_match, given_form)
 
-        if hapitime2datetime(given_form_modifed) != hapitime2datetime(given_form):
-            print("Mismatch: ", given_form_modifed, given_form, hapitime2datetime(given_form_modifed), hapitime2datetime(given_form))
+        if hapitime2datetime(padz(given_form_modifed)) != hapitime2datetime(padz(given_form)):
+            print("Mismatch: ", given_form_modifed, given_form, hapitime2datetime(padz(given_form_modifed)), hapitime2datetime(padz(given_form)))
             assert False
 
         assert bool(ydoy_re(given_form_modifed))
@@ -31,21 +32,21 @@ def test_convert_dt_string1(logging=False):
         form_to_match = '1997-318'
         given_form = '{}-{:02}'.format(random.randint(1800, 2020), random.randint(1, 12))
         given_form_modifed = convert_dt_string(form_to_match, given_form)
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime(given_form)
+        assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(given_form))
         assert bool(ydoy_re(given_form_modifed))
 
         # ymd -> ydoy
         form_to_match = '1997-318'
         given_form = '{}-{:02}-{:02}'.format(random.randint(1800, 2020), random.randint(1, 12), random.randint(1, 28))
         given_form_modifed = convert_dt_string(form_to_match, given_form)
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime(given_form)
+        assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(given_form))
         assert bool(ydoy_re(given_form_modifed))
 
         # ydoy -> y
         form_to_match = '1997'
         given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
         given_form_modifed = convert_dt_string(form_to_match, given_form)
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime(given_form.split('-')[0])
+        assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(given_form.split('-')[0]))
         assert bool(y_re(given_form_modifed))
 
         # ydoy -> ym
@@ -53,8 +54,8 @@ def test_convert_dt_string1(logging=False):
         given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
         given_form_modifed = convert_dt_string(form_to_match, given_form)
 
-        hdt = hapitime2datetime(given_form)[0]
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime('{}-{:02}'.format(hdt.year, hdt.month))
+        hdt = hapitime2datetime(padz(given_form))[0]
+        assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz('{}-{:02}'.format(hdt.year, hdt.month)))
         assert bool(ym_re(given_form_modifed))
 
         # ydoy -> ymd
@@ -62,8 +63,8 @@ def test_convert_dt_string1(logging=False):
         given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
         given_form_modifed = convert_dt_string(form_to_match, given_form)
 
-        hdt = hapitime2datetime(given_form)[0]
-        assert hapitime2datetime(given_form_modifed) == hapitime2datetime('{}-{:02}-{:02}'.format(hdt.year, hdt.month, hdt.day))
+        hdt = hapitime2datetime(padz(given_form))[0]
+        assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz('{}-{:02}-{:02}'.format(hdt.year, hdt.month, hdt.day)))
         assert bool(ymd_re(given_form_modifed))
 
     dts = [
@@ -94,7 +95,7 @@ def test_convert_dt_string1(logging=False):
         for j in range(i + 1, len(dts)):
             given_form = dts[j]
             given_form_modifed = convert_dt_string(form_to_match, given_form)
-            assert hapitime2datetime(given_form_modifed) == hapitime2datetime(form_to_match)
+            assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(form_to_match))
             assert given_form_modifed == form_to_match
 
     # padding
@@ -104,11 +105,12 @@ def test_convert_dt_string1(logging=False):
         for j in range(i + 1, len(dts)):
             given_form = dts[j]
             given_form_modifed = convert_dt_string(form_to_match, given_form)
-            assert hapitime2datetime(given_form_modifed) == hapitime2datetime(form_to_match)
+            assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(form_to_match))
             assert given_form_modifed == form_to_match
 
 
-def test_convert_dt_string(logging=False):
+def test_convert_dt_string2(logging=False):
+    padz = lambda x: x if 'Z' in x else x + 'Z'
 
     dts = [
             "1989",
@@ -175,8 +177,8 @@ def test_convert_dt_string(logging=False):
                     if logging:
                         xprint(start, data, converted_datetime)
 
-                dt1 = hapitime2datetime(start)[0]
-                dt2 = hapitime2datetime(converted_datetime)[0]
+                dt1 = hapitime2datetime(padz(start))[0]
+                dt2 = hapitime2datetime(padz(converted_datetime))[0]
                 if start[-1] != 'Z':
                     # hapitime2datetime() requires input to end with 'Z' and output will
                     # always have tzinfo=<UTC>. If `start` does not end with 'Z'
@@ -196,7 +198,12 @@ def test_convert_dt_string(logging=False):
 
 
 if __name__ == '__main__':
+    '''
+    The test_convert_dt_string1() will not create any check that is not checked by test_convert_dt_string2(). 
+    test_convert_dt_string1() is more specific than test_convert_dt_string2(). It is written so that it will be easy to 
+    debug looking at where it's failing while adding new features in the future.
+    '''
     logging = True
     if logging:
-        print("Calling test_convert_dt_string().")
-    test_convert_dt_string(logging=logging)
+        print("Calling test_convert_dt_string1().")
+    test_convert_dt_string1(logging=logging)
