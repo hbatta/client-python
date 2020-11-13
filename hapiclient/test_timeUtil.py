@@ -1,5 +1,216 @@
 from timeUtil import *
 
+
+def test_reformat_iso_time():
+    """Test of reformatIsoTime method, of class TimeUtil.
+    """
+    print("reformat_iso_time")
+    expResult = "2020-04-21T00:00Z"
+    result = reformat_iso_time("2020-01-01T00:00Z", "2020-112Z")
+    assert expResult == result
+
+
+def test_normalize_time_string():
+    """Test of normalizeTimeString method, of class TimeUtil.
+    """
+    print("normalize_time_string")
+    time = "2020-09-25";
+    expResult = "2020-09-25T00:00:00.000000000Z"
+    result = normalize_time_string(time)
+    assert expResult == result
+
+
+def test_iso_time_to_array():
+    """ Test of isoTimeToArray method, of class TimeUtil.
+    """
+    print("iso_time_to_array")
+
+    time = "2020-09-25T01:02Z"
+    expResult = [2020, 9, 25, 1, 2, 0, 0]
+    result = iso_time_to_array(time)
+    assert expResult == result
+
+    time = "2020-033"
+    expResult = [2020, 2, 2, 0, 0, 0, 0]
+    result = iso_time_to_array(time)
+    assert expResult == result
+
+    time = "2020-02-02"
+    expResult = [2020, 2, 2, 0, 0, 0, 0]
+    result = iso_time_to_array(time)
+    assert expResult == result
+
+    time = "2020-02-02Z"
+    expResult = [2020, 2, 2, 0, 0, 0, 0]
+    result = iso_time_to_array(time)
+    assert expResult == result
+
+    time = "2020-02-02T01:02:03.0406"
+    expResult = [2020, 2, 2, 1, 2, 3, 40600000]
+    result = iso_time_to_array(time)
+    assert expResult == result
+
+
+def test_array_to_iso_time():
+    """Test array_to_iso_time.
+    """
+    print("array_to_iso_time")
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy'
+    expResult = "1990"
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy-mm'
+    expResult = "1990-04"
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy-mm-dd'
+    expResult = "1990-04-24"
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy-mm-ddThh'
+    expResult = "1990-04-24T00"
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy-mm-ddThh:mm'
+    expResult = "1990-04-24T00:00"
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy-mm-ddThh:mm:ss'
+    expResult = "1990-04-24T00:00:00"
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    for i in range(1, 10):
+        dt_format = 'yyyy-mm-ddThh:mm:ss.{}'.format(i)
+        expResult = "1990-04-24T00:00:00.{:0{width}}".format(0, width=i)
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy-doy'
+    expResult = '1990-114'
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy-doyThh'
+    expResult = '1990-114T00'
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy-doyThh:mm'
+    expResult = '1990-114T00:00'
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    dt_format = 'yyyy-doyThh:mm:ss'
+    expResult = '1990-114T00:00:00'
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+    dt = [1990, 4, 24, 0, 0, 0, 0]
+    for i in range(1, 10):
+        dt_format = 'yyyy-doyThh:mm:ss.{}'.format(i)
+        expResult = '1990-114T00:00:00.{:0{width}}'.format(0, width=i)
+    result = array_to_iso_time(dt, dt_format)
+    assert result == expResult
+
+
+def test_get_dt_format():
+    """ Test get_dt_format.
+    """
+    print("get_dt_format")
+
+    time = '1990'
+    expResult = 'yyyy'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    time = '1990-04'
+    expResult = 'yyyy-mm'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    time = '1990-04-24'
+    expResult = 'yyyy-mm-dd'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    time = '1990-04-24T00'
+    expResult = 'yyyy-mm-ddThh'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    time = '1990-04-24T00:00'
+    expResult = 'yyyy-mm-ddThh:mm'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    time = '1990-04-24T00:00:00'
+    expResult = 'yyyy-mm-ddThh:mm:ss'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    for i in range(1, 10):
+        time = '1990-04-24T00:00:00.{:0{width}}'.format(0, width=i)
+        expResult = 'yyyy-mm-ddThh:mm:ss.{}'.format(i)
+        result = get_dt_format(time)
+        assert result == expResult
+
+    time = '1990-114'
+    expResult = 'yyyy-doy'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    time = '1990-114T00'
+    expResult = 'yyyy-doyThh'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    time = '1990-114T00:00'
+    expResult = 'yyyy-doyThh:mm'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    time = '1990-114T00:00:00'
+    expResult = 'yyyy-doyThh:mm:ss'
+    result = get_dt_format(time)
+    assert result == expResult
+
+    for i in range(1, 10):
+        time = '1990-114T00:00:00.{:0{width}}'.format(0, width=i)
+        expResult = 'yyyy-doyThh:mm:ss.{}'.format(i)
+        result = get_dt_format(time)
+        assert result == expResult
+
+
+def test_day_of_year():
+    """Test of dayOfYear method, of class TimeUtil.
+    """
+    print("day_of_year")
+    year = 2000
+    month = 5
+    day = 29
+    expResult = 150
+    result = day_of_year(year, month, day)
+    assert expResult == result
+
+
 def test_convert_dt_string1(logging=False):
 
     from hapi import hapitime2datetime
@@ -203,7 +414,13 @@ if __name__ == '__main__':
     test_convert_dt_string1() is more specific than test_convert_dt_string2(). It is written so that it will be easy to 
     debug looking at where it's failing while adding new features in the future.
     '''
-    logging = True
-    if logging:
-        print("Calling test_convert_dt_string1().")
-    test_convert_dt_string1(logging=logging)
+
+    tests = [test_reformat_iso_time, test_normalize_time_string, test_iso_time_to_array, test_day_of_year,
+             test_array_to_iso_time, test_get_dt_format]
+    for test in tests:
+        test()
+
+    # logging = True
+    # if logging:
+    #     print("Calling test_convert_dt_string1().")
+    # test_convert_dt_string1(logging=logging)
