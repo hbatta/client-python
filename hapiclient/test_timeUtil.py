@@ -1,4 +1,4 @@
-from timeUtil import *
+from hapiclient.timeUtil import *
 
 
 def test_reformat_iso_time():
@@ -212,8 +212,7 @@ def test_day_of_year():
 
 
 def test_convert_dt_string1(logging=False):
-
-    from hapi import hapitime2datetime
+    from hapiclient.hapi import hapitime2datetime
     import random
 
     y_re = lambda x: re.match(r'^([12]\d{3})$', x)

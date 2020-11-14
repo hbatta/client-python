@@ -444,7 +444,8 @@ def hapi(*args, **kwargs):
                 opts['dt_chunk'] = 'P1Y'
 
         if opts['n_chunks'] is not None or opts['dt_chunk'] is not None:
-            pSTART, pSTOP = hapitime2datetime(START)[0], hapitime2datetime(STOP)[0]
+            padz = lambda x: x if 'Z' in x else x + 'Z'
+            pSTART, pSTOP = hapitime2datetime(padz(START))[0], hapitime2datetime(padz(STOP))[0]
 
             if opts['dt_chunk']:
                 pDELTA = isodate.parse_duration(opts['dt_chunk'])
@@ -512,12 +513,12 @@ def hapi(*args, **kwargs):
 
             resD = list(resD)
 
-            from .timeUtil import convert_datetime_string
+            from hapiclient.timeUtil import convert_dt_string
 
-            START = convert_datetime_string(resD[0]['Time'][0].decode('UTF-8'), START)
+            START = convert_dt_string(resD[0]['Time'][0].decode('UTF-8'), START)
             resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
 
-            STOP = convert_datetime_string(resD[-1]['Time'][0].decode('UTF-8'), STOP)
+            STOP = convert_dt_string(resD[-1]['Time'][0].decode('UTF-8'), STOP)
             resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'utf8')]
 
             data = np.concatenate(resD)
