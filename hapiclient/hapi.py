@@ -450,7 +450,8 @@ def hapi(*args, **kwargs):
                 opts['dt_chunk'] = 'P1Y'
 
         if opts['n_chunks'] is not None or opts['dt_chunk'] is not None:
-            pSTART, pSTOP = hapitime2datetime(START)[0], hapitime2datetime(STOP)[0]
+            padz = lambda x: x if 'Z' in x else x + 'Z'
+            pSTART, pSTOP = hapitime2datetime(padz(START))[0], hapitime2datetime(padz(STOP))[0]
 
             if opts['dt_chunk']:
                 pDELTA = isodate.parse_duration(opts['dt_chunk'])
@@ -516,62 +517,15 @@ def hapi(*args, **kwargs):
                 )
             )
 
-            ymd_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))$', x)
-            yd_re = lambda x: re.match(r'^([12]\d{3}-[0123]\d{2})$', x)
-
-
-            # Determine if 'Time' is in YYYY-DOY-.. or YYYY-MM-...
-            if ymd_re(resD[0]['Time'][0].decode('UTF-8').split('T')[0]):
-                if not ymd_re(START.split('T')[0]) and yd_re(START.split('T')[0]):
-                    year, yday = START.split('T')[0].split('-')
-                    tmpStart = datetime(year=int(year), month=1, day=1) + timedelta(days=int(yday)-1)
-                    START = '{}T{}'.format('{}-{:02}-{:02}'.format(tmpStart.year, tmpStart.month, tmpStart.day), START.split('T')[1])
-
-                if not ymd_re(STOP.split('T')[0]) and yd_re(STOP.split('T')[0]):
-                    year, yday = STOP.split('T')[0].split('-')
-                    tmpStop = datetime(year=int(year), month=1, day=1) + timedelta(days=int(yday)-1)
-                    STOP = '{}T{}'.format('{}-{:02}-{:02}'.format(tmpStop.year, tmpStop.month, tmpStop.day), STOP.split('T')[1])
-
-            elif yd_re(resD[0]['Time'][0].decode('UTF-8').split('T')[0]):
-                if not yd_re(START.split('T')[0]) and ymd_re(START.split('T')[0]):
-                    tmpStart = datetime.strptime(START.split('T')[0], '%Y-%m-%d').timetuple()
-                    START = '{}T{}'.format('{}-{:03}'.format(tmpStart.tm_year, tmpStart.tm_yday), START.split('T')[1])
-
-                if not yd_re(STOP.split('T')[0]) and ymd_re(STOP.split('T')[0]):
-                    tmpStop = datetime.strptime(STOP.split('T')[0], '%Y-%m-%d').timetuple()
-                    STOP = '{}T{}'.format('{}-{:03}'.format(tmpStop.tm_year, tmpStop.tm_yday), STOP.split('T')[1])
-
-            if 'Z' not in START:
-                START = START + 'Z'
-
-            if 'Z' not in STOP:
-                STOP = STOP + 'Z'
-
             resD = list(resD)
 
-            # Bug 1
-            # If the resD[0]['Time'] has no values >= START we should go and look into the next request data i.e.,
-            # resD[0+1]['Time'] and so on till you find a values which satisfies this condition.
-            # if all(resD[0]['Time'] >= bytes(START, 'utf8')) == False: FAIL!
-            # resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
-            for i in range(len(resD)):
-                filtered_resD = resD[i]['Time'] >= bytes(START, 'utf8')
-                resD[i] = resD[i][filtered_resD]
-                if any(filtered_resD):
-                    break
+            from hapiclient.timeUtil import convert_dt_string
 
+            START = convert_dt_string(resD[0]['Time'][0].decode('UTF-8'), START)
+            resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
 
-            # Bug 2
-            # If the resD[-1]['Time'] has no values < STOP we should go and look into the previous request data i.e.,
-            # resD[-1-1]['Time'] and so on till you find a values which satisfies this condition.
-            # if all(resD[-1]['Time'] < bytes(START, 'utf8')) == False: FAIL!
-            if len(resD) > 1:
-                # resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'utf8')]
-                for i in range(len(resD) - 1, -1, -1):
-                    filtered_resD = resD[i]['Time'] < bytes(STOP, 'utf8')
-                    resD[i] = resD[i][filtered_resD]
-                    if any(filtered_resD):
-                        break
+            STOP = convert_dt_string(resD[-1]['Time'][0].decode('UTF-8'), STOP)
+            resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'utf8')]
 
             data = np.concatenate(resD)
 
