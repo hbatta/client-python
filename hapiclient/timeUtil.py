@@ -1,4 +1,6 @@
 import re
+import math
+from datetime import datetime
 
 iso8601_duration = "P((\\d+)Y)?((\\d+)M)?((\\d+)D)?(T((\\d+)H)?((\\d+)M)?((" + "\\d?\\.?\\d+" + ")S)?)?"
 iso8601_duration_pattern = re.compile(iso8601_duration)
@@ -13,23 +15,28 @@ DAY_OFFSET = [[0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365],
 
 
 def is_leap_year(year):
-    """Function to check if the given year is a leap year or not.
+    """Determine if a given year is a leap year.
+
     Parameters
     ----------
-    year: int
+    year: int or float with  year >= 1582 and year <= 2400
 
     Returns
     -------
-    1 for leap years, 0 if not a leap year.
+    True for a leap year, False otherwise.
 
     """
+
     if year < 1582 or year > 2400:
-        raise Exception("year must be between 1582 and 2400")
+        # TODO: Use ValueError exception
+        raise Exception("year must be > 1582 and < 2400")
+
     return (year % 4) == 0 and (year % 400 == 0 or year % 100 != 0)
 
 
 def day_of_year(year, month, day):
-    """Function to calculate day of year.
+    """Compute day-of-year given year, month, and day.
+
     Parameters
     ----------
     year: int
@@ -43,17 +50,20 @@ def day_of_year(year, month, day):
     -------
         The day of year.
     """
+
+    # TODO: ValueError Exception if year, month, day are not int
+
     if month == 1:
         return day
 
     if month < 1:
-        raise Exception("month must be greater than 0.")
+        raise Exception("month must be greater than 0. Given: " + month)
 
     if month > 12:
-        raise Exception("month must be less than 12.")
+        raise Exception("month must be less than 13. Given: " + month)
 
     if day > 366:
-        raise Exception("day (" + day + ") must be less than 366.")
+        raise Exception("day must be less than 367. Given: " + day)
 
     if is_leap_year(year):
         return DAY_OFFSET[1][month] + day
@@ -62,7 +72,7 @@ def day_of_year(year, month, day):
 
 
 def normalize_time(time):
-    """ Normalize the decomposed time by expressing day of year and month and day
+    """Normalize the decomposed time by expressing day of year and month and day
     of month, and moving hour="24" into the next day. This also handles day
     increment or decrements, by:
         1. handle day=0 by decrementing month and adding the days in the new
@@ -71,14 +81,16 @@ def normalize_time(time):
         3. handle negative components by borrowing from the next significant.
     Note that [Y,1,dayOfYear,...] is accepted, but the result will be Y,m,d.
 
+    # TODO: Add examples. Use one-line summary. ValueError exceptions.
+
     Parameters
     ----------
     time: list
-        The seven-component time Y,m,d,H,M,S,nanoseconds.
+        The seven-component time Y, m, d, H, M, S, nanoseconds.
 
     Returns
     -------
-        The seven-component time Y,m,d,H,M,S,nanoseconds.
+        The seven-component time Y, m, d, H, M, S, nanoseconds.
     """
 
     while time[3] >= 24:
@@ -116,7 +128,7 @@ def normalize_time(time):
         time[1] = time[1] + 12  # add 12 months
 
     if time[3] > 24:
-        raise Exception("time[3] is greater than 24 (hours)")
+        raise Exception("time[3] (hour) is greater than 24.")
 
     if time[1] > 12:
         time[0] = time[0] + 1
@@ -147,11 +159,11 @@ def normalize_time(time):
         time[2] -= d
         d = DAYS_IN_MONTH[leap][time[1]]
         if time[1] > 12:
-            raise Exception("time[2] is too big")
+            raise Exception("time[2] (month) is greater than 12.")
 
 
 def normalize_time_string(time):
-    """ Normalize the decomposed time by expressing day of year and month and day
+    """Normalize the decomposed time by expressing day of year and month and day
     of month, and moving hour="24" into the next day. This also handles day
     increment or decrements, by:
         1. handle day=0 by decrementing month and adding the days in the new
@@ -159,6 +171,8 @@ def normalize_time_string(time):
         2. handle day=32 by incrementing month.
         3. handle negative components by borrowing from the next significant.
     Note that [Y,1,dayOfYear,...] is accepted, but the result will be Y,m,d.
+
+    # TODO: Add examples. Use one-line summary.
 
     Parameters
     ----------
@@ -169,13 +183,14 @@ def normalize_time_string(time):
     -------
         The time in standard form. $Y-$m-$dT$H:$M:$S.$(subsec,places=9)Z
     """
+
     nn = iso_time_to_array(time)
     normalize_time(nn)
     return "%d-%02d-%02dT%02d:%02d:%02d.%09dZ" % (nn[0], nn[1], nn[2], nn[3], nn[4], nn[5], nn[6])
 
 
 def reformat_iso_time(exampleForm, time):
-    """Rewrite the time using the format of the example time.
+    """Rewrite a time string in the format of an example time.
 
     For example,
         :@code
@@ -198,6 +213,7 @@ def reformat_iso_time(exampleForm, time):
         Same time but in the same form as exampleForm.
 
     """
+
     c = exampleForm[8]
     nn = iso_time_to_array(normalize_time_string(time))
     if c == 'T':
@@ -228,9 +244,8 @@ def reformat_iso_time(exampleForm, time):
 
 
 def now():
-    """Returns the current time.
+    """Returns the current time as a list of integers.
     """
-    from datetime import datetime
     n = datetime.utcnow()
     return [n.year, n.month, n.day, n.hour, n.minute, n.second, n.microsecond * 1000]
 
@@ -246,11 +261,12 @@ def iso_time_to_array(time):
         4. 2020-01-01Z
         5. 2020-01-01T00Z
         6. 2020-01-01T00:00Z
-
         7. now
         8. now-P1D
         9. lastday-P1D
         10. lasthour-PT1H
+
+    # TODO: Add examples. Use one-line summary.
 
     Parameters
     ----------
@@ -261,6 +277,7 @@ def iso_time_to_array(time):
     -------
         The decomposed time array [ year, months, days, hours, minutes, seconds, nanoseconds ]
     """
+
     time = time.strip()
     if len(time) == 4:
         result = [int(time), 1, 1, 0, 0, 0, 0]
@@ -273,7 +290,6 @@ def iso_time_to_array(time):
             n = now()
             remainder = time[3:]
         else:
-            import re
             p = re.compile("last([a-z]+)([\\+|\\-]P.*)?")
             m = p.match(time)
             if m is not None:
@@ -366,30 +382,11 @@ def iso_time_to_array(time):
             result[5] = int(time[6:8])
 
         if len(time) > 9:
-            import math
             result[6] = int((math.pow(10, 18 - len(time))) * int(time[9:]))
 
         normalize_time(result)
 
     return result
-
-
-def parse_int(s, deft):
-    """ Parse the int or return the default value
-    """
-    if s is None:
-        return deft
-    else:
-        return int(s)
-
-
-def parse_double(d, deft):
-    """ Parse the double or return the default value
-    """
-    if d is None:
-        return deft
-    else:
-        return float(d)
 
 
 def parse_iso8601_duration(stringIn):
@@ -412,6 +409,25 @@ def parse_iso8601_duration(stringIn):
         A 7 element array with [year,mon,day,hour,min,sec,nanos].
 
     """
+
+    def parse_int(s, deft):
+        """ Parse the int or return the default value
+        """
+        if s is None:
+            return deft
+        else:
+            return int(s)
+
+
+    def parse_double(d, deft):
+        """ Parse the double or return the default value
+        """
+        if d is None:
+            return deft
+        else:
+            return float(d)
+
+
     m = iso8601_duration_pattern.match(stringIn)
     if m is not None:
         dsec = parse_double(m.group(13), 0)
@@ -428,7 +444,9 @@ def parse_iso8601_duration(stringIn):
 
 def parse_iso8601_timerange(stringIn):
     """Parse the ISO8601 time range, like "1998-01-02/1998-01-17", into
-    start and stop times, returned in a 14 element array of ints.
+    start and stop times, returned in a 14-element array of ints.
+
+    # TODO: One-line summary and examples.
 
     Parameters
     ----------
@@ -439,6 +457,7 @@ def parse_iso8601_timerange(stringIn):
         The time start and stop [ Y,m,d,H,M,S,N, Y,m,d,H,M,S,N ]
 
     """
+
     ss = stringIn.split("/")
     if len(ss) != 2:
         raise Exception("expected one slash (/) splitting start and stop times.")
@@ -490,6 +509,7 @@ def subtract(base, offset):
     -------
         A time.
     """
+
     result = [None] * 7
     for i in range(0, 7):
         result[i] = base[i] - offset[i]
@@ -523,12 +543,12 @@ def add(base, offset):
 
 
 def array_to_iso_time(dt, dt_format):
-    """Converts a 7 element array with [year,mon,day,hour,min,sec,nanos] to the given format.
+    """Converts a 7-element list with [year, mon, day, hour, min, sec, nanos] to the given format.
 
     Parameters
     ----------
-    dt: array
-        A 7 element array with [year,mon,day,hour,min,sec,nanos].
+    dt: list
+        A 7-element list with [year, mon, day, hour, min, sec, nanos].
 
     dt_format: str
 
@@ -549,8 +569,9 @@ def array_to_iso_time(dt, dt_format):
 
     Returns
     -------
-        Time in given format.
+        Time in given format. # TODO: What is type of output?
     """
+
     if dt_format == 'yyyy':
         return '{}'.format(dt[0])
     if dt_format == 'yyyy-mm':
@@ -590,13 +611,14 @@ def array_to_iso_time(dt, dt_format):
                 dt[0],                             # year
                 day_of_year(dt[0], dt[1], dt[2]),  # day of year
                 dt[3], dt[4], dt[5],               # Hour, Minute, Second
-                dt[6] // (10 ** (9 - width)),      # Nano second to given fraction of second format
+                dt[6] // (10 ** (9 - width)),      # nanosecond to given fraction of second format
                 width=width
             )
 
 
 def get_dt_format(dateTimeString):
     """Get the format of a time string.
+
     Parameters
     ----------
     dateTimeString: str
@@ -619,6 +641,7 @@ def get_dt_format(dateTimeString):
         'yyyy-doyThh:mm:ss.{}'
 
     """
+
     y_re = lambda x: re.match(r'^([12]\d{3})$', x)
     ym_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2]))$', x)
     ymd_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))$', x)
@@ -662,16 +685,21 @@ def get_dt_format(dateTimeString):
 
 
 def convert_dt_string(form_to_match, given_form):
-    """ Converts the given form time to the form to match.
+    """Converts the given time string to the form of a reference time string.
 
     Parameters
     ----------
     form_to_match: str
     given_form: str
 
+    # TODO: This does something similar to reformat_time. Duplication? Move into reformat_time?
+    # Document differences and comment if one or the other is not needed.
+    # Call this reformat_time_alt()?
+
     Returns
     -------
-        Given form converted to the form to match.
+        str
+        Given time string converted to the form of reference time string.
     """
 
     form_to_match_format = get_dt_format(form_to_match)
