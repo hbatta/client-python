@@ -230,7 +230,8 @@ def test_convert_dt_string1(logging=False):
         # y -> ydoy
         form_to_match = '1997-318'
         given_form = '{}'.format(random.randint(1800, 2020))
-        given_form_modifed = convert_dt_string(form_to_match, given_form)
+        given_form_modifed = reformat_iso_time_alt(form_to_match, given_form)
+        given_form_modifed = reformat_iso_time(form_to_match, given_form)
 
         if hapitime2datetime(padz(given_form_modifed)) != hapitime2datetime(padz(given_form)):
             print("Mismatch: ", given_form_modifed, given_form, hapitime2datetime(padz(given_form_modifed)), hapitime2datetime(padz(given_form)))
@@ -241,29 +242,32 @@ def test_convert_dt_string1(logging=False):
         # ym -> ydoy
         form_to_match = '1997-318'
         given_form = '{}-{:02}'.format(random.randint(1800, 2020), random.randint(1, 12))
-        given_form_modifed = convert_dt_string(form_to_match, given_form)
+        given_form_modifed = reformat_iso_time_alt(form_to_match, given_form)
+        # given_form_modifed = reformat_iso_time(form_to_match, given_form)
         assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(given_form))
         assert bool(ydoy_re(given_form_modifed))
 
         # ymd -> ydoy
         form_to_match = '1997-318'
         given_form = '{}-{:02}-{:02}'.format(random.randint(1800, 2020), random.randint(1, 12), random.randint(1, 28))
-        given_form_modifed = convert_dt_string(form_to_match, given_form)
+        given_form_modifed = reformat_iso_time_alt(form_to_match, given_form)
+        # given_form_modifed = reformat_iso_time(form_to_match, given_form)
         assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(given_form))
         assert bool(ydoy_re(given_form_modifed))
 
         # ydoy -> y
         form_to_match = '1997'
         given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
-        given_form_modifed = convert_dt_string(form_to_match, given_form)
+        given_form_modifed = reformat_iso_time_alt(form_to_match, given_form)
+        # given_form_modifed = reformat_iso_time(form_to_match, given_form)
         assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(given_form.split('-')[0]))
         assert bool(y_re(given_form_modifed))
 
         # ydoy -> ym
         form_to_match = '1997-11'
         given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
-        given_form_modifed = convert_dt_string(form_to_match, given_form)
-
+        given_form_modifed = reformat_iso_time_alt(form_to_match, given_form)
+        # given_form_modifed = reformat_iso_time(form_to_match, given_form)
         hdt = hapitime2datetime(padz(given_form))[0]
         assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz('{}-{:02}'.format(hdt.year, hdt.month)))
         assert bool(ym_re(given_form_modifed))
@@ -271,7 +275,8 @@ def test_convert_dt_string1(logging=False):
         # ydoy -> ymd
         form_to_match = '1997-11-14'
         given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
-        given_form_modifed = convert_dt_string(form_to_match, given_form)
+        given_form_modifed = reformat_iso_time_alt(form_to_match, given_form)
+        # given_form_modifed = reformat_iso_time(form_to_match, given_form)
 
         hdt = hapitime2datetime(padz(given_form))[0]
         assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz('{}-{:02}-{:02}'.format(hdt.year, hdt.month, hdt.day)))
@@ -304,7 +309,8 @@ def test_convert_dt_string1(logging=False):
         form_to_match = dts[i]
         for j in range(i + 1, len(dts)):
             given_form = dts[j]
-            given_form_modifed = convert_dt_string(form_to_match, given_form)
+            given_form_modifed = reformat_iso_time_alt(form_to_match, given_form)
+            # given_form_modifed = reformat_iso_time(form_to_match, given_form)
             assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(form_to_match))
             assert given_form_modifed == form_to_match
 
@@ -314,7 +320,8 @@ def test_convert_dt_string1(logging=False):
         form_to_match = dts[i]
         for j in range(i + 1, len(dts)):
             given_form = dts[j]
-            given_form_modifed = convert_dt_string(form_to_match, given_form)
+            given_form_modifed = reformat_iso_time_alt(form_to_match, given_form)
+            # given_form_modifed = reformat_iso_time(form_to_match, given_form)
             assert hapitime2datetime(padz(given_form_modifed)) == hapitime2datetime(padz(form_to_match))
             assert given_form_modifed == form_to_match
 

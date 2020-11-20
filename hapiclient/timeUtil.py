@@ -19,17 +19,18 @@ def is_leap_year(year):
 
     Parameters
     ----------
-    year: int or float with  year >= 1582 and year <= 2400
+    year: int or float
+        year >= 1582 and year <= 2400
 
     Returns
     -------
-    True for a leap year, False otherwise.
+    bool:
+        True for a leap year, False otherwise.
 
     """
 
     if year < 1582 or year > 2400:
-        # TODO: Use ValueError exception
-        raise Exception("year must be > 1582 and < 2400")
+        raise ValueError("year must be > 1582 and < 2400")
 
     return (year % 4) == 0 and (year % 400 == 0 or year % 100 != 0)
 
@@ -48,22 +49,26 @@ def day_of_year(year, month, day):
 
     Returns
     -------
+    int:
         The day of year.
     """
 
-    # TODO: ValueError Exception if year, month, day are not int
+    try:
+        _, _, _ = int(year), int(month), int(day)
+    except ValueError:
+        raise ValueError("Year, Month, Day must be int. Given year={}, month={}, day={}.".format(year, month, day))
 
     if month == 1:
         return day
 
     if month < 1:
-        raise Exception("month must be greater than 0. Given: " + month)
+        raise ValueError("month must be greater than 0. Given: " + month)
 
     if month > 12:
-        raise Exception("month must be less than 13. Given: " + month)
+        raise ValueError("month must be less than 13. Given: " + month)
 
     if day > 366:
-        raise Exception("day must be less than 367. Given: " + day)
+        raise ValueError("day must be less than 367. Given: " + day)
 
     if is_leap_year(year):
         return DAY_OFFSET[1][month] + day
@@ -72,25 +77,28 @@ def day_of_year(year, month, day):
 
 
 def normalize_time(time):
-    """Normalize the decomposed time by expressing day of year and month and day
-    of month, and moving hour="24" into the next day. This also handles day
-    increment or decrements, by:
+    """Normalize time by expressing day of year and month and day of month, and moving hour="24" into the next day.
+
+    Notes
+    -----
+    This also handles day increment or decrements, by:
         1. handle day=0 by decrementing month and adding the days in the new
             month.
         2. handle day=32 by incrementing month.
         3. handle negative components by borrowing from the next significant.
     Note that [Y,1,dayOfYear,...] is accepted, but the result will be Y,m,d.
 
-    # TODO: Add examples. Use one-line summary. ValueError exceptions.
-
     Parameters
     ----------
     time: list
         The seven-component time Y, m, d, H, M, S, nanoseconds.
 
-    Returns
-    -------
-        The seven-component time Y, m, d, H, M, S, nanoseconds.
+    Examples
+    --------
+    >>> from hapiclient.timeUtil import normalize_time
+    >>> time = [1997, 1, 140, 0, 0, 0, 0]
+    >>> time
+    [1997, 5, 20, 0, 0, 0, 0]
     """
 
     while time[3] >= 24:
@@ -128,7 +136,7 @@ def normalize_time(time):
         time[1] = time[1] + 12  # add 12 months
 
     if time[3] > 24:
-        raise Exception("time[3] (hour) is greater than 24.")
+        raise ValueError("time[3] (hour) is greater than 24.")
 
     if time[1] > 12:
         time[0] = time[0] + 1
@@ -159,20 +167,19 @@ def normalize_time(time):
         time[2] -= d
         d = DAYS_IN_MONTH[leap][time[1]]
         if time[1] > 12:
-            raise Exception("time[2] (month) is greater than 12.")
+            raise ValueError("time[2] (month) is greater than 12.")
 
 
 def normalize_time_string(time):
-    """Normalize the decomposed time by expressing day of year and month and day
-    of month, and moving hour="24" into the next day. This also handles day
-    increment or decrements, by:
-        1. handle day=0 by decrementing month and adding the days in the new
-            month.
+    """Normalizes time by expressing day of year and month and day of month, and moving hour="24" into the next day.
+
+    Notes
+    -----
+    This also handles day increment or decrements, by:
+        1. handle day=0 by decrementing month and adding the days in the new month.
         2. handle day=32 by incrementing month.
         3. handle negative components by borrowing from the next significant.
     Note that [Y,1,dayOfYear,...] is accepted, but the result will be Y,m,d.
-
-    # TODO: Add examples. Use one-line summary.
 
     Parameters
     ----------
@@ -181,7 +188,21 @@ def normalize_time_string(time):
 
     Returns
     -------
+    str
         The time in standard form. $Y-$m-$dT$H:$M:$S.$(subsec,places=9)Z
+
+    Examples
+    --------
+    All of the following return
+        '1969-07-20T00:00:00.000000000Z'
+
+    >>> from hapiclient.timeUtil import normalize_time_string
+    >>> normalize_time_string("1969-07-20")
+    >>> normalize_time_string("1969-06-50")
+    >>> normalize_time_string("1969-07-20T00")
+    >>> normalize_time_string("1969-07-20T00:00")
+    >>> normalize_time_string("1969-07-20T00:00:00")
+    >>> normalize_time_string("1969-07-20T00:00:00.0")
     """
 
     nn = iso_time_to_array(time)
@@ -192,11 +213,8 @@ def normalize_time_string(time):
 def reformat_iso_time(exampleForm, time):
     """Rewrite a time string in the format of an example time.
 
-    For example,
-        :@code
-        from org.hapiserver.TimeUtil import *
-        print rewriteIsoTime( '2020-01-01T00:00Z', '2020-112Z' ) # ->  '2020-04-21T00:00Z'
-
+    Notes
+    -----
     This allows direct comparisons of times for sorting.
     TODO: there's an optimization here, where if input and output are both $Y-$j or
     both $Y-$m-$d, then we need not break apart and recombine the time
@@ -206,11 +224,22 @@ def reformat_iso_time(exampleForm, time):
     ----------
     exampleForm: str
         isoTime string.
-    time:
+    time: str
         The time in any allowed isoTime format.
     Returns
     -------
+    str
         Same time but in the same form as exampleForm.
+
+    Examples
+    --------
+    >>> from hapiclient.timeUtil import reformat_iso_time
+    >>> reformat_iso_time( '2020-01-01T00:00Z', '2020-112Z' )
+    '2020-04-21T00:00Z'
+    >>> reformat_iso_time( '2020-01-01T00:00:00Z', '2020-01-01T00:10Z' )
+    '2020-04-21T00:10:00Z'
+    >>> reformat_iso_time( '2020-01-01T00:00:00.00Z', '2020-01-01T00:10:11Z' )
+    '2020-04-21T00:10:11.00Z'
 
     """
 
@@ -251,9 +280,12 @@ def now():
 
 
 def iso_time_to_array(time):
-    """preserving the day of year notation if this was used. See the class
-    documentation for allowed time formats, which are a subset of ISO8601
-    times.  This also supports "now", "now-P1D", and other simple extensions.
+    """ Convert iso time to array [ year, months, days, hours, minutes, seconds, nanoseconds ].
+
+    Notes
+    -----
+    preserving the day of year notation if this was used. See the class documentation for allowed time formats, which
+    are a subset of ISO8601 times.  This also supports "now", "now-P1D", and other simple extensions.
     The following are valid inputs:
         1. 2021
         2. 2021-01
@@ -266,16 +298,24 @@ def iso_time_to_array(time):
         9. lastday-P1D
         10. lasthour-PT1H
 
-    # TODO: Add examples. Use one-line summary.
-
     Parameters
     ----------
-    time:
+    time: str
         isoTime to decompose
 
     Returns
     -------
+    list
         The decomposed time array [ year, months, days, hours, minutes, seconds, nanoseconds ]
+
+    Examples
+    --------
+    >>> from hapiclient.timeUtil import iso_time_to_array
+    >>> iso_time_to_array("1969-06-20")
+    [1969, 6, 20, 0, 0, 0, 0]
+
+    >>> iso_time_to_array("1969-06-20T01")
+    [1969, 6, 20, 1, 0, 0, 0]
     """
 
     time = time.strip()
@@ -390,10 +430,11 @@ def iso_time_to_array(time):
 
 
 def parse_iso8601_duration(stringIn):
-    """Parse iso8601 duration.
-    Note
-    this does not allow fractional day, hours or minutes! Examples
-    include:
+    """Parse iso8601 duration into a list [year,mon,day,hour,min,sec,nanos].
+
+    Notes
+    -----
+    This does not allow fractional day, hours or minutes! Examples include:
         1. P1D - one day
         2. PT1M - one minute
         3. PT0.5S - 0.5 seconds
@@ -401,12 +442,38 @@ def parse_iso8601_duration(stringIn):
     TODO: there exists more complete code elsewhere.
     Parameters
     ----------
-    stringIn:
+    stringIn: str
         The ISO8601 duration.
 
     Returns
     -------
+    list
         A 7 element array with [year,mon,day,hour,min,sec,nanos].
+
+
+    Examples
+    --------
+    >>> from hapiclient.timeUtil import parse_iso8601_duration
+    >>> parse_iso8601_duration('P1Y')
+    [1, 0, 0, 0, 0, 0, 0]
+
+    >>> parse_iso8601_duration('P1M')
+    [0, 1, 0, 0, 0, 0, 0]
+
+    >>> parse_iso8601_duration('P1D')
+    [0, 0, 1, 0, 0, 0, 0]
+
+    >>> parse_iso8601_duration('PT1H')
+    [0, 0, 0, 1, 0, 0, 0]
+
+    >>> parse_iso8601_duration('PT1M')
+    [0, 0, 0, 0, 1, 0, 0]
+
+    >>> parse_iso8601_duration('PT1S')
+    [0, 0, 0, 0, 0, 1, 0]
+
+    >>> parse_iso8601_duration('P3Y6M4DT12H30M5S')
+    [3, 6, 4, 12, 30, 5, 0]
 
     """
 
@@ -436,36 +503,44 @@ def parse_iso8601_duration(stringIn):
         return [parse_int(m.group(2), 0), parse_int(m.group(4), 0), parse_int(m.group(6), 0),
                 parse_int(m.group(9), 0), parse_int(m.group(11), 0), sec, nanosec]
     else:
-        if stringIn.contains("P") and stringIn.contains("S") and not stringIn.contains("T"):
+        if "P" in stringIn and "S" in stringIn and not "T" in stringIn:
             raise Exception("ISO8601 duration expected but not found.  Was the T missing before S?")
         else:
             raise Exception("ISO8601 duration expected but not found.")
 
 
 def parse_iso8601_timerange(stringIn):
-    """Parse the ISO8601 time range, like "1998-01-02/1998-01-17", into
-    start and stop times, returned in a 14-element array of ints.
-
-    # TODO: One-line summary and examples.
+    """Parse the ISO8601 time range into start and stop times.
 
     Parameters
     ----------
     stringIn: str
+        ISO8601 time range
 
     Returns
     -------
+    list
         The time start and stop [ Y,m,d,H,M,S,N, Y,m,d,H,M,S,N ]
 
+    Examples
+    --------
+    >>> from hapiclient.timeUtil import parse_iso8601_timerange
+
+    >>> parse_iso8601_timerange("1998-01-02/1998-01-17")
+    [1998, 1, 2, 0, 0, 0, 0, 1998, 1, 17, 0, 0, 0, 0]
+
+    >>> parse_iso8601_timerange("1998-002/1998-017")
+    [1998, 1, 2, 0, 0, 0, 0, 1998, 1, 17, 0, 0, 0, 0]
     """
 
     ss = stringIn.split("/")
     if len(ss) != 2:
         raise Exception("expected one slash (/) splitting start and stop times.")
 
-    if len(ss[0]) == 0 or not (ss[0][0].isDigit() or ss[0][0] == 'P' or ss[0].startswith("now")):
+    if len(ss[0]) == 0 or not (ss[0][0].isdigit() or ss[0][0] == 'P' or ss[0].startswith("now")):
         raise Exception("first time/duration is misformatted.  Should be ISO8601 time or duration like P1D.")
 
-    if len(ss[1]) == 0 or not (ss[1][0].isDigit() or ss[1][0] == 'P' or ss[1].startswith("now")):
+    if len(ss[1]) == 0 or not (ss[1][0].isdigit() or ss[1][0] == 'P' or ss[1].startswith("now")):
         raise Exception("second time/duration is misformatted.  Should be ISO8601 time or duration like P1D.")
 
     result = [None] * 14
@@ -520,8 +595,9 @@ def subtract(base, offset):
 
 
 def add(base, offset):
-    """Add the offset to the base time. This should not be used to combine two
-    offsets, because the code has not been verified for this use.
+    """Add the offset to the base time.
+
+    This should not be used to combine two offsets, because the code has not been verified for this use.
 
     Parameters
     ----------
@@ -545,6 +621,20 @@ def add(base, offset):
 def array_to_iso_time(dt, dt_format):
     """Converts a 7-element list with [year, mon, day, hour, min, sec, nanos] to the given format.
 
+    The following are valid inputs for dt_format:
+        1. 'yyyy'
+        2. 'yyyy-mm'
+        3. 'yyyy-mm-dd'
+        4. 'yyyy-mm-ddThh'
+        5. 'yyyy-mm-ddThh:mm'
+        6. 'yyyy-mm-ddThh:mm:ss'
+        7. 'yyyy-mm-ddThh:mm:ss.{1-9}'
+        8. 'yyyy-doy'
+        9. 'yyyy-doyThh'
+        10. 'yyyy-doyThh:mm'
+        11. 'yyyy-doyThh:mm:ss'
+        12. 'yyyy-doyThh:mm:ss.{1-9}'
+
     Parameters
     ----------
     dt: list
@@ -552,24 +642,31 @@ def array_to_iso_time(dt, dt_format):
 
     dt_format: str
 
-        'yyyy'
-        'yyyy-mm'
-        'yyyy-mm-dd'
-        'yyyy-mm-ddThh'
-        'yyyy-mm-ddThh:mm'
-        'yyyy-mm-ddThh:mm:ss'
-        'yyyy-mm-ddThh:mm:ss.{}'
-
-        'yyyy-doy'
-        'yyyy-doyThh'
-        'yyyy-doyThh:mm'
-        'yyyy-doyThh:mm:ss'
-        'yyyy-doyThh:mm:ss.{}'
-
 
     Returns
     -------
-        Time in given format. # TODO: What is type of output?
+    str
+        Time in given format.
+
+    Examples
+    --------
+
+        >>> from hapiclient.timeUtil import array_to_iso_time
+
+        >>> array_to_iso_time([1998, 1, 2, 0, 0, 0, 0], 'yyyy')
+        1998
+
+        >>> array_to_iso_time([1998, 1, 2, 0, 0, 0, 0], 'yyyy-mm-dd')
+        1998-01-02
+
+        >>> array_to_iso_time([1998, 1, 2, 0, 0, 0, 1234], 'yyyy-mm-ddThh:mm:ss.9')
+        1998-01-02T00:00:00.123400000
+
+        >>> array_to_iso_time([1998, 1, 2, 0, 0, 0, 1], 'yyyy-mm-ddThh:mm:ss.5')
+        1998-01-02T00:00:00.10000
+
+        >>> array_to_iso_time([1998, 1, 2, 0, 0, 0, 156], 'yyyy-mm-ddThh:mm:ss.6')
+        1998-01-02T00:00:00.156000
     """
 
     if dt_format == 'yyyy':
@@ -587,11 +684,11 @@ def array_to_iso_time(dt, dt_format):
 
     if '.' in dt_format and dt_format.split('.')[0] == 'yyyy-mm-ddThh:mm:ss':
         width = int(dt_format.split('.')[-1])
-        return '{}-{:02}-{:02}T{:02}:{:02}:{:02}.{:0{width}}'\
+        return '{}-{:02}-{:02}T{:02}:{:02}:{:02}.{:0<{width}}'\
             .format(
                 dt[0], dt[1], dt[2],               # Year, Month, Day
                 dt[3], dt[4], dt[5],               # Hour, Minute, Second
-                dt[6] // (10 ** (8 - width + 1)),  # Nano second to given fraction of second format
+                dt[6],                             # Nanosecond
                 width=width
             )
 
@@ -606,12 +703,12 @@ def array_to_iso_time(dt, dt_format):
 
     if '.' in dt_format and dt_format.split('.')[0] == 'yyyy-doyThh:mm:ss':
         width = int(dt_format.split('.')[-1])
-        return '{}-{:03}T{:02}:{:02}:{:02}.{:0{width}}'\
+        return '{}-{:03}T{:02}:{:02}:{:02}.{:0<{width}}'\
             .format(
                 dt[0],                             # year
                 day_of_year(dt[0], dt[1], dt[2]),  # day of year
                 dt[3], dt[4], dt[5],               # Hour, Minute, Second
-                dt[6] // (10 ** (9 - width)),      # nanosecond to given fraction of second format
+                dt[6],                             # nanosecond
                 width=width
             )
 
@@ -619,26 +716,29 @@ def array_to_iso_time(dt, dt_format):
 def get_dt_format(dateTimeString):
     """Get the format of a time string.
 
+    The format of the given time string can be one of the following:
+        1. 'yyyy'
+        2. 'yyyy-mm'
+        3. 'yyyy-mm-dd'
+        4. 'yyyy-mm-ddThh'
+        5. 'yyyy-mm-ddThh:mm'
+        6. 'yyyy-mm-ddThh:mm:ss'
+        7. 'yyyy-mm-ddThh:mm:ss.{1-9}'
+
+        8. 'yyyy-doy'
+        9. 'yyyy-doyThh'
+        10. 'yyyy-doyThh:mm'
+        11. 'yyyy-doyThh:mm:ss'
+        12. 'yyyy-doyThh:mm:ss.{1-9}'
+
+
     Parameters
     ----------
     dateTimeString: str
 
     Returns
     -------
-    The format of the given time string.
-        'yyyy'
-        'yyyy-mm'
-        'yyyy-mm-dd'
-        'yyyy-mm-ddThh'
-        'yyyy-mm-ddThh:mm'
-        'yyyy-mm-ddThh:mm:ss'
-        'yyyy-mm-ddThh:mm:ss.{}'
-
-        'yyyy-doy'
-        'yyyy-doyThh'
-        'yyyy-doyThh:mm'
-        'yyyy-doyThh:mm:ss'
-        'yyyy-doyThh:mm:ss.{}'
+    format: str
 
     """
 
@@ -684,7 +784,7 @@ def get_dt_format(dateTimeString):
     return dateTimeType
 
 
-def convert_dt_string(form_to_match, given_form):
+def reformat_iso_time_alt(form_to_match, given_form):
     """Converts the given time string to the form of a reference time string.
 
     Parameters
@@ -692,14 +792,33 @@ def convert_dt_string(form_to_match, given_form):
     form_to_match: str
     given_form: str
 
-    # TODO: This does something similar to reformat_time. Duplication? Move into reformat_time?
-    # Document differences and comment if one or the other is not needed.
-    # Call this reformat_time_alt()?
-
     Returns
     -------
-        str
+    str
         Given time string converted to the form of reference time string.
+
+    Examples
+    --------
+    >>> from hapiclient.timeUtil import reformat_iso_time_alt
+    >>> reformat_iso_time_alt('2020-01-01T00:00Z', '2020-112Z')
+    2020-04-21T00:00Z
+
+    >>> reformat_iso_time_alt('2020-01-01T00:00:00Z', '2020-01-01T00:10Z')
+    2020-04-21T00:10:00Z
+
+    >>> reformat_iso_time_alt('2020-01-01T00:00:00.00Z', '2020-01-01T00:10:11Z')
+    2020-04-21T00:10:11.00Z
+
+    Notes
+    -----
+    Differences between reformat_iso_time and reformat_iso_time_alt.
+
+    reformat_iso_time
+        1. Always assumes there is a Z at the end in "Data" or "exampleForm".
+        2. Always returns with a Z at the end.
+        3. Failed to convert from ydoy to y (ydoy -> y)
+        4. Failed to convert from ydoy to ym (ydoy -> ym)
+
     """
 
     form_to_match_format = get_dt_format(form_to_match)
