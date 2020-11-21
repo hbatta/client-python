@@ -211,7 +211,8 @@ def test_day_of_year():
     assert expResult == result
 
 
-def test_reformat_iso_time_alt1(logging=False):
+def test_reformat_iso_time_alt(logging=False):
+
 
     from hapiclient.hapi import hapitime2datetime
     import random
@@ -327,6 +328,7 @@ def test_reformat_iso_time_alt1(logging=False):
             assert given_form_modified == form_to_match
 
 
+"""
 def test_reformat_iso_time_alt(logging=False):
     padz = lambda x: x if 'Z' in x else x + 'Z'
 
@@ -413,14 +415,9 @@ def test_reformat_iso_time_alt(logging=False):
                 print("Exception caused by:")
                 xprint(dts[j], dts[i], reformat_iso_time(data, start))
                 print(e)
-
+"""
 
 if __name__ == '__main__':
-    '''
-    The  test_reformat_iso_time_alt() will not create any check that is not checked by test_reformat_iso_time_alt2(). 
-    test_reformat_iso_time_alt() is more specific than test_reformat_iso_time_alt2(). It is written so that it will be easy to 
-    debug looking at where it's failing while adding new features in the future.
-    '''
 
     logging = True
     tests = [test_reformat_iso_time, test_normalize_time_string, test_iso_time_to_array, test_day_of_year,
@@ -428,4 +425,4 @@ if __name__ == '__main__':
     for test in tests:
         if logging:
             print("Calling " + str(test))
-        test(logging=logging)
+        test() #logging=logging)
