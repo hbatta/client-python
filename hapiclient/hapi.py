@@ -151,12 +151,18 @@ def hapiopts():
 
 
 def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts):
+    START = pSTART + (i * pDELTA)
+    START = str(START.date())+'T'+str(START.time())
+
+    STOP = pSTART + ((i + 1) * pDELTA)
+    STOP = str(STOP.date()) + 'T' + str(STOP.time())
+
     data, meta = hapi(
         SERVER,
         DATASET,
         PARAMETERS,
-        'T'.join(str((pSTART + (i * pDELTA))).split(' ')),
-        'T'.join(str((pSTART + ((i + 1) * pDELTA))).split(' ')),
+        START,
+        STOP,
         **opts
     )
     return data, meta
@@ -519,12 +525,12 @@ def hapi(*args, **kwargs):
 
             resD = list(resD)
 
-            from hapiclient.timeUtil import convert_dt_string
+            from hapiclient.timeUtil import reformat_iso_time_alt
 
-            START = convert_dt_string(resD[0]['Time'][0].decode('UTF-8'), START)
+            START = reformat_iso_time_alt(resD[0]['Time'][0].decode('UTF-8'), START)
             resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
 
-            STOP = convert_dt_string(resD[-1]['Time'][0].decode('UTF-8'), STOP)
+            STOP = reformat_iso_time_alt(resD[-1]['Time'][0].decode('UTF-8'), STOP)
             resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'utf8')]
 
             data = np.concatenate(resD)
@@ -953,9 +959,13 @@ def hapitime2datetime(Time, **kwargs):
     hapitime2datetime('1970-01-01T00:00:00.000Z')
 
     """
-
-    # TODO: This should throw an error
-    # hapitime2datetime([['1999-001Z','1999-01Z']])
+    from collections.abc import Iterable
+    if isinstance(Time, Iterable):
+        for t in Time:
+            ydoy_re = lambda x: re.match(r'^([12]\d{3}-[0123]\d{2})Z?$', x)
+            ym_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2]))Z?$', x)
+            if ydoy_re(t) or ym_re(t):
+                raise ValueError
 
     from datetime import datetime
 

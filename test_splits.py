@@ -154,3 +154,41 @@ if True:
     stop = '1989-274T00:00:00.000Z'
     data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
     compare(data1, data2, meta1, meta2, 'dt_chunk=None', 'dt_chunk=infer; start:ydoy stop:ydoy, data:ydoy')
+
+# old tests
+if True:
+    import numpy as np
+    from hapiclient import hapi
+
+    def compare(data1, data2, meta, title):
+        print('serial, 5 splits, no cache %5.2f ms %8.4f s' % (1000. * meta['x_readTime'], meta['x_downloadTime']))
+        assert np.array_equal(data1, data2)
+
+    server = 'http://hapi-server.org/servers/TestData2.0/hapi'
+    dataset = 'dataset1'
+    parameters = 'scalar'
+    start = '1971-01-01T00:00:00.000'
+    stop = '1971-01-01T06:00:00.000'
+
+    opts = {'usecache': False, 'parallel': False}
+    data1, meta1 = hapi(server, dataset, parameters, start, stop, **opts)
+
+    opts = {'usecache': True, 'parallel': False}
+    data1c, meta1c = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data1c, meta1c, 'Serial, no split, cache')
+
+    opts = {'usecache': False, 'parallel': False, 'n_chunks': 5}
+    data2, meta2 = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data2, meta2, '....')
+
+    opts = {'usecache': True, 'parallel': False, 'n_chunks': 5}
+    data2c, meta2c = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data2c, meta2c, '....')
+
+    opts = {'usecache': False, 'parallel': True, 'n_chunks': 5}
+    data3, meta3 = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data3, meta3, '....')
+
+    opts = {'usecache': True, 'parallel': True, 'n_chunks': 5}
+    data3c, meta3c = hapi(server, dataset, parameters, start, stop, **opts)
+    compare(data1, data3c, meta3c, '....')
