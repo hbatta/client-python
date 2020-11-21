@@ -211,7 +211,8 @@ def test_day_of_year():
     assert expResult == result
 
 
-def test_convert_dt_string1(logging=False):
+def test_reformat_iso_time_alt1(logging=False):
+
     from hapiclient.hapi import hapitime2datetime
     import random
 
@@ -259,7 +260,7 @@ def test_convert_dt_string1(logging=False):
         form_to_match = '1997'
         given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
         given_form_modified = reformat_iso_time_alt(form_to_match, given_form)
-        # given_form_modified = reformat_iso_time(form_to_match, given_form)
+        # given_form_modified = reformat_iso_time(form_to_match, given_form) # fails
         assert hapitime2datetime(padz(given_form_modified)) == hapitime2datetime(padz(given_form.split('-')[0]))
         assert bool(y_re(given_form_modified))
 
@@ -267,7 +268,7 @@ def test_convert_dt_string1(logging=False):
         form_to_match = '1997-11'
         given_form = '{}-{:03}'.format(random.randint(1800, 2020), random.randint(1, 360))
         given_form_modified = reformat_iso_time_alt(form_to_match, given_form)
-        # given_form_modified = reformat_iso_time(form_to_match, given_form)
+        # given_form_modified = reformat_iso_time(form_to_match, given_form) # fails
         hdt = hapitime2datetime(padz(given_form))[0]
         assert hapitime2datetime(padz(given_form_modified)) == hapitime2datetime(padz('{}-{:02}'.format(hdt.year, hdt.month)))
         assert bool(ym_re(given_form_modified))
@@ -326,7 +327,7 @@ def test_convert_dt_string1(logging=False):
             assert given_form_modified == form_to_match
 
 
-def test_convert_dt_string2(logging=False):
+def test_reformat_iso_time_alt(logging=False):
     padz = lambda x: x if 'Z' in x else x + 'Z'
 
     dts = [
@@ -388,7 +389,7 @@ def test_convert_dt_string2(logging=False):
             try:
                 data = dts[i]
                 start = dts[j]
-                converted_datetime = convert_dt_string(data, start)
+                converted_datetime = reformat_iso_time(data, start)
                 if len(converted_datetime) != len(data):
                     assert False, "Conversion failure. Lengths do not match."
                     if logging:
@@ -405,28 +406,26 @@ def test_convert_dt_string2(logging=False):
                     dt2 = dt2.replace(tzinfo=tzinfo)
                 if dt1 != dt2:
                     if logging:
-                        xprint(dts[j], dts[i], convert_dt_string(data, start))
+                        xprint(dts[j], dts[i], reformat_iso_time(data, start))
                     if converted_datetime[-1] == "Z" and dts[j][-1] == "Z":
                         assert False, "Conversion failure. Times are not equal."
             except Exception as e:
                 print("Exception caused by:")
-                xprint(dts[j], dts[i], convert_dt_string(data, start))
+                xprint(dts[j], dts[i], reformat_iso_time(data, start))
                 print(e)
 
 
 if __name__ == '__main__':
     '''
-    The test_convert_dt_string1() will not create any check that is not checked by test_convert_dt_string2(). 
-    test_convert_dt_string1() is more specific than test_convert_dt_string2(). It is written so that it will be easy to 
+    The  test_reformat_iso_time_alt() will not create any check that is not checked by test_reformat_iso_time_alt2(). 
+    test_reformat_iso_time_alt() is more specific than test_reformat_iso_time_alt2(). It is written so that it will be easy to 
     debug looking at where it's failing while adding new features in the future.
     '''
 
+    logging = True
     tests = [test_reformat_iso_time, test_normalize_time_string, test_iso_time_to_array, test_day_of_year,
-             test_array_to_iso_time, test_get_dt_format]
+             test_array_to_iso_time, test_get_dt_format, test_reformat_iso_time_alt]
     for test in tests:
-        test()
-
-    # logging = True
-    # if logging:
-    #     print("Calling test_convert_dt_string1().")
-    # test_convert_dt_string1(logging=logging)
+        if logging:
+            print("Calling " + str(test))
+        test(logging=logging)

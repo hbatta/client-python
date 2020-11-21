@@ -618,6 +618,8 @@ def add(base, offset):
     return result
 
 
+# Hari's additions start here
+
 def array_to_iso_time(dt, dt_format):
     """Converts a 7-element list with [year, mon, day, hour, min, sec, nanos] to the given format.
 
@@ -811,13 +813,13 @@ def reformat_iso_time_alt(form_to_match, given_form):
 
     Notes
     -----
-    Differences between reformat_iso_time and reformat_iso_time_alt.
+    Differences between `reformat_iso_time()` and `reformat_iso_time_alt()`.
 
-    reformat_iso_time
-        1. Always assumes there is a Z at the end in "Data" or "exampleForm".
-        2. Always returns with a Z at the end.
-        3. Failed to convert from ydoy to y (ydoy -> y)
-        4. Failed to convert from ydoy to ym (ydoy -> ym)
+    `reformat_iso_time()`
+        1. Always assumes there is a Z at the end in `form_to_match`.
+        2. Always returns a time string with a Z at the end.
+        3. Failed to convert from yyyy-doy to yyyy
+        4. Failed to convert from yyyy-doy to yyyy-mm
 
     """
 
