@@ -2,28 +2,28 @@ from hapiclient.timeUtil import *
 
 
 def test_reformat_iso_time():
-    """Test of reformatIsoTime method, of class TimeUtil.
+    """Test of reformat_iso_time.
     """
-    print("reformat_iso_time")
+    # print("reformat_iso_time")
     expResult = "2020-04-21T00:00Z"
     result = reformat_iso_time("2020-01-01T00:00Z", "2020-112Z")
     assert expResult == result
 
 
 def test_normalize_time_string():
-    """Test of normalizeTimeString method, of class TimeUtil.
+    """Test of normalize_time_string.
     """
-    print("normalize_time_string")
-    time = "2020-09-25";
+    # print("normalize_time_string")
+    time = "2020-09-25"
     expResult = "2020-09-25T00:00:00.000000000Z"
     result = normalize_time_string(time)
     assert expResult == result
 
 
 def test_iso_time_to_array():
-    """ Test of isoTimeToArray method, of class TimeUtil.
+    """ Test of iso_time_to_array.
     """
-    print("iso_time_to_array")
+    # print("iso_time_to_array")
 
     time = "2020-09-25T01:02Z"
     expResult = [2020, 9, 25, 1, 2, 0, 0]
@@ -52,9 +52,9 @@ def test_iso_time_to_array():
 
 
 def test_array_to_iso_time():
-    """Test array_to_iso_time.
+    """Test of array_to_iso_time.
     """
-    print("array_to_iso_time")
+    # print("array_to_iso_time")
 
     dt = [1990, 4, 24, 0, 0, 0, 0]
     dt_format = 'yyyy'
@@ -132,9 +132,9 @@ def test_array_to_iso_time():
 
 
 def test_get_dt_format():
-    """ Test get_dt_format.
+    """ Test of get_dt_format.
     """
-    print("get_dt_format")
+    # print("get_dt_format")
 
     time = '1990'
     expResult = 'yyyy'
@@ -200,9 +200,9 @@ def test_get_dt_format():
 
 
 def test_day_of_year():
-    """Test of dayOfYear method, of class TimeUtil.
+    """Test of day_of_year.
     """
-    print("day_of_year")
+    # print("day_of_year")
     year = 2000
     month = 5
     day = 29
@@ -212,7 +212,6 @@ def test_day_of_year():
 
 
 def test_reformat_iso_time_alt(logging=False):
-
 
     from hapiclient.hapi import hapitime2datetime
     import random
@@ -296,7 +295,8 @@ def test_reformat_iso_time_alt(logging=False):
         "1989-01-01T00:00:00.000",
         "1989-01-01T00:00:00.0000",
         "1989-01-01T00:00:00.00000",
-        "1989-01-01T00:00:00.000000"
+        "1989-01-01T00:00:00.000000",
+        # "1989-01-01T00:00:00.000000000"   # nanoseconds
     ]
 
     for i in range(len(dts)):
@@ -328,101 +328,31 @@ def test_reformat_iso_time_alt(logging=False):
             assert given_form_modified == form_to_match
 
 
-"""
-def test_reformat_iso_time_alt(logging=False):
-    padz = lambda x: x if 'Z' in x else x + 'Z'
-
-    dts = [
-            "1989",
-            "1989-01",
-            "1989-01-01",
-            "1989-09-29T00",
-            "1989-09-29T01",
-            "1989-09-29T23",
-            "1989-09-29T00:00",
-            "1989-09-29T00:01",
-            "1989-09-29T00:59",
-            "1989-09-29T00:00:00",
-            "1989-09-29T00:00:01",
-            "1989-09-29T00:00:59",
-            "1989-09-29T00:00:00.0",
-            "1989-09-29T00:00:00.1",
-            "1989-09-29T00:00:00.9",
-            "1989-09-29T00:00:00.00",
-            "1989-09-29T00:00:00.01",
-            "1989-09-29T00:00:00.99",
-            "1989-09-29T00:00:00.000",
-            "1989-09-29T00:00:00.001",
-            "1989-09-29T00:00:00.999",
-            "1989-09-29T00:00:00.0000",
-            "1989-09-29T00:00:00.0001",
-            "1989-09-29T00:00:00.9999",
-            "1989-09-29T00:00:00.00000",
-            "1989-09-29T00:00:00.00001",
-            "1989-09-29T00:00:00.99999",
-            "1989-09-29T00:00:00.000000",
-            "1989-09-29T00:00:00.000001",
-            "1989-09-29T00:00:00.999999"
-        ]
-
-    for i in range(len(dts)):
-        dts.append(dts[i] + "Z")
-
-    for i in range(len(dts)):
-        if "T" in dts[i]:
-            dts.append("1989-009T" + dts[i].split("T")[1])
-
-    def xprint(start, data, converted):
-        print("START           ", start)
-        print("Data            ", data)
-        print("START Converted ", converted)
-        print("-" * 80)
-
-    from hapiclient import hapitime2datetime
-    try:
-        # Python 2
-        import pytz
-        tzinfo = pytz.UTC
-    except:
-        tzinfo = datetime.timezone.utc
-
-    for i in range(len(dts)):
-        for j in range(len(dts)):
-            try:
-                data = dts[i]
-                start = dts[j]
-                converted_datetime = reformat_iso_time(data, start)
-                if len(converted_datetime) != len(data):
-                    assert False, "Conversion failure. Lengths do not match."
-                    if logging:
-                        xprint(start, data, converted_datetime)
-
-                dt1 = hapitime2datetime(padz(start))[0]
-                dt2 = hapitime2datetime(padz(converted_datetime))[0]
-                if start[-1] != 'Z':
-                    # hapitime2datetime() requires input to end with 'Z' and output will
-                    # always have tzinfo=<UTC>. If `start` does not end with 'Z'
-                    # then dt1 will not have a timezone and equality check against
-                    # dt2 will fail.
-                    dt1 = dt1.replace(tzinfo=tzinfo)
-                    dt2 = dt2.replace(tzinfo=tzinfo)
-                if dt1 != dt2:
-                    if logging:
-                        xprint(dts[j], dts[i], reformat_iso_time(data, start))
-                    if converted_datetime[-1] == "Z" and dts[j][-1] == "Z":
-                        assert False, "Conversion failure. Times are not equal."
-            except Exception as e:
-                print("Exception caused by:")
-                xprint(dts[j], dts[i], reformat_iso_time(data, start))
-                print(e)
-"""
-
 if __name__ == '__main__':
+
+    '''
+    # %f - Microsecond as a decimal number, zero-padded on the left.
+    # datetime objects don't support anything more fine than microseconds. As pointed out by Mike Pennington in
+    # the comments, this is likely because computer hardware clocks aren't nearly that precise
+
+    # code snippet 1
+    from hapiclient.hapi import hapitime2datetime
+    padz = lambda x: x if 'Z' in x else x + 'Z'
+    time = '1989-001T00:00:00.000000000'
+    _ = hapitime2datetime(padz(time))
+
+    # code snippet 2
+    import pytz
+    tzinfo = pytz.UTC
+    t = ['1989-001T00:00:00.000000000Z']
+    fmt = '%Y-%jT%H:%M:%S.%fZ'
+    _ = datetime.strptime(t[0], fmt).replace(tzinfo=tzinfo)
+    '''
 
     logging = True
     tests = [test_reformat_iso_time, test_normalize_time_string, test_iso_time_to_array, test_day_of_year,
              test_array_to_iso_time, test_get_dt_format, test_reformat_iso_time_alt]
     for test in tests:
         if logging:
-            print("Calling " + str(test))
-        test() #logging=logging)
+            print("Calling " + test.__name__)
+        test()

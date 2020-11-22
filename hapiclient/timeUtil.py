@@ -53,9 +53,7 @@ def day_of_year(year, month, day):
         The day of year.
     """
 
-    try:
-        _, _, _ = int(year), int(month), int(day)
-    except ValueError:
+    if not isinstance(year, int) or not isinstance(month, int) or not isinstance(day, int):
         raise ValueError("Year, Month, Day must be int. Given year={}, month={}, day={}.".format(year, month, day))
 
     if month == 1:
@@ -218,14 +216,14 @@ def reformat_iso_time(exampleForm, time):
     This allows direct comparisons of times for sorting.
     TODO: there's an optimization here, where if input and output are both $Y-$j or
     both $Y-$m-$d, then we need not break apart and recombine the time
-    (isoTimeToArray call can be avoided).
+    (iso_time_to_array call can be avoided).
 
     Parameters
     ----------
     exampleForm: str
-        isoTime string.
+        ISO8601 time string.
     time: str
-        The time in any allowed isoTime format.
+        The time in any allowed ISO8601 time format.
     Returns
     -------
     str
@@ -301,7 +299,7 @@ def iso_time_to_array(time):
     Parameters
     ----------
     time: str
-        isoTime to decompose
+        ISO8601 time to decompose
 
     Returns
     -------
@@ -430,7 +428,7 @@ def iso_time_to_array(time):
 
 
 def parse_iso8601_duration(stringIn):
-    """Parse iso8601 duration into a list [year,mon,day,hour,min,sec,nanos].
+    """Parse ISO8601 duration into a list [year,mon,day,hour,min,sec,nanos].
 
     Notes
     -----

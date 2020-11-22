@@ -528,10 +528,10 @@ def hapi(*args, **kwargs):
             from hapiclient.timeUtil import reformat_iso_time_alt
 
             START = reformat_iso_time_alt(resD[0]['Time'][0].decode('UTF-8'), START)
-            resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'utf8')]
+            resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'UTF-8')]
 
             STOP = reformat_iso_time_alt(resD[-1]['Time'][0].decode('UTF-8'), STOP)
-            resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'utf8')]
+            resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'UTF-8')]
 
             data = np.concatenate(resD)
 
@@ -959,13 +959,12 @@ def hapitime2datetime(Time, **kwargs):
     hapitime2datetime('1970-01-01T00:00:00.000Z')
 
     """
-    from collections.abc import Iterable
-    if isinstance(Time, Iterable):
-        for t in Time:
-            ydoy_re = lambda x: re.match(r'^([12]\d{3}-[0123]\d{2})Z?$', x)
-            ym_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2]))Z?$', x)
-            if ydoy_re(t) or ym_re(t):
-                raise ValueError
+
+    # hapitime2datetime([['1999-001Z','1999-01Z']]) throws an error.
+    if type(Time) == list:
+        Time = np.asarray(Time)
+        if not all(list(map(lambda x: type(x) in [np.str_, np.bytes_, str, bytes], Time))):
+            raise ValueError
 
     from datetime import datetime
 
