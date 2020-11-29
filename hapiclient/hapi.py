@@ -203,16 +203,24 @@ def hapi(*args, **kwargs):
 
             `serverlist` (https://github.com/hapi-server/servers/raw/master/all.txt)
 
-            `parallel` (False) If true, make up to `n_parallel` requests to server in parallel (uses threads)
+            `parallel` (False) If true, make up to `n_parallel` requests to
+                server in parallel (uses threads)
 
-            `n_parallel` (5) Maximum number of parallel requests to server. Max allowed is 5.
+            `n_parallel` (5) Maximum number of parallel requests to server.
+                Max allowed is 5.
 
-            `dt_chunk` ('infer') For requests that span a time larger than the default
-                chunk size for a given dataset cadence, the client will split request
-                into chunks if `dt_chunk` is not `None` (and `n_chunks` is not `None` or greater than 1).
-                Allowed values of `dt_chunk` are 'infer', `None`, 'PT1M', 'PT1H',
-                'P1D', and 'P1Y'. The default chunk size is determined based on the
-                cadence of the dataset requested according to
+            `n_chunks` (None) Get data by making `n_chunks` requests by splitting
+                requested time range. `dt_chunk` is ignored if `n_chunks` is
+                not `None`. Allowed values are integers > 1.
+
+            `dt_chunk` ('infer') For requests that span a time range larger
+                than the default chunk size for a given dataset cadence, the
+                client will split request into chunks if `dt_chunk` is not
+                `None`. 
+
+                Allowed values of `dt_chunk` are 'infer', `None`, 'PT1M',
+                'PT1H', 'P1D', and 'P1Y'. The default chunk size is determined
+                based on the cadence of the dataset requested according to
 
                     cadence < PT1S              dt_chunk='PT1H'
                     PT1S <= cadence <= PT1H     dt_chunk='P1D'
@@ -247,9 +255,6 @@ def hapi(*args, **kwargs):
                             (2) start/stop=1999-11-13/start=1999-11-14
                             and trim performed
 
-            `n_chunks` (None) Get data by making `n_chunks` requests by splitting
-                requested time range. `dt_chunk` is ignored if `n_chunks` is not `None`.
-                Allowed values are integers > 1.
         
             
     Returns
@@ -377,6 +382,9 @@ def hapi(*args, **kwargs):
         fnamepkl = fname_root + '.pkl'
 
         if nin == 5:  # Data requested
+
+            tic_totalTime = time.time()
+
             # URL to get CSV (will be used if binary response is not available)
             urlcsv = SERVER + '/data?id=' + DATASET + '&parameters=' + \
                      PARAMETERS + '&time.min=' + START + '&time.max=' + STOP
@@ -543,6 +551,7 @@ def hapi(*args, **kwargs):
             meta['x_downloadTimes'] = [resM[i]['x_downloadTime'] for i in range(len(resM))]
             meta['x_readTime'] = sum([resM[i]['x_readTime'] for i in range(len(resM))])
             meta['x_readTimes'] = [resM[i]['x_readTime'] for i in range(len(resM))]
+            meta['x_totalTime'] = time.time() - tic_totalTime
             meta['x_dataFileParsed'] = None
             meta['x_dataFilesParsed'] = [resM[i]['x_dataFileParsed'] for i in range(len(resM))]
 
@@ -581,6 +590,7 @@ def hapi(*args, **kwargs):
             # fnamepklx was not found (b/c removed). In this case, the meta 
             # returned will not have all of the "x_" information inserted below.
             # Code that uses this information needs to account for this.
+            meta['x_totalTime'] = time.time() - tic_totalTime
             return data, meta
 
         cformats = ['csv', 'binary']  # client formats
@@ -604,7 +614,7 @@ def hapi(*args, **kwargs):
             if not 'binary' in sformats:
                 opts['format'] = 'csv'
 
-                ##################################################################
+        ##################################################################
         # Compute data type variable dt used to read HAPI response into
         # a data structure.
         pnames, psizes, dt = [], [], []
@@ -887,11 +897,14 @@ def hapi(*args, **kwargs):
         # h.data
         # h.meta
         # h.info
+
         # Create cache directory
         if not os.path.exists(opts["cachedir"]):
             os.makedirs(opts["cachedir"])
         if not os.path.exists(urld):
             os.makedirs(urld)
+
+        # Write metadata to cache
         log('Writing %s' % fnamepklx, opts)
         f = open(fnamepklx, 'wb')
         pickle.dump(meta, f, protocol=2)
@@ -904,6 +917,7 @@ def hapi(*args, **kwargs):
             else:
                 np.save(fnamenpy, data)
 
+        meta['x_totalTime'] = time.time() - tic_totalTime
         if missing_length:
             return data2, meta
         else:

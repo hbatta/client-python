@@ -130,6 +130,7 @@ repository-test-data:
 
 	$(CONDA_ACTIVATE) $(PYTHON); $(pythonw) -m pytest -v -m 'not long' hapiclient/test/test_hapi.py
 	$(CONDA_ACTIVATE) $(PYTHON); $(pythonw) -m pytest -v -m 'long' hapiclient/test/test_hapi.py
+	$(CONDA_ACTIVATE) $(PYTHON); $(pythonw) -m pytest -v hapiclient/test/test_chunking.py
 	$(CONDA_ACTIVATE) $(PYTHON); $(pythonw) -m pytest -v hapiclient/test/test_hapitime2datetime.py
 
 # These require visual inspection.

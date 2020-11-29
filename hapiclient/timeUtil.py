@@ -30,7 +30,7 @@ def is_leap_year(year):
     """
 
     if year < 1582 or year > 2400:
-        raise ValueError("year must be > 1582 and < 2400")
+        raise ValueError("year must be >= 1582 and <= 2400")
 
     return (year % 4) == 0 and (year % 400 == 0 or year % 100 != 0)
 
@@ -54,7 +54,7 @@ def day_of_year(year, month, day):
     """
 
     if not isinstance(year, int) or not isinstance(month, int) or not isinstance(day, int):
-        raise ValueError("Year, Month, Day must be int. Given year={}, month={}, day={}.".format(year, month, day))
+        raise ValueError("Year, Month, Day must be int. Given: year={}, month={}, day={}.".format(year, month, day))
 
     if month == 1:
         return day
@@ -75,16 +75,16 @@ def day_of_year(year, month, day):
 
 
 def normalize_time(time):
-    """Normalize time by expressing day of year and month and day of month, and moving hour="24" into the next day.
+    """Normalize time by expressing day-of-year as month and day of month; move hour=24 into the next day.
 
     Notes
     -----
-    This also handles day increment or decrements, by:
-        1. handle day=0 by decrementing month and adding the days in the new
-            month.
-        2. handle day=32 by incrementing month.
-        3. handle negative components by borrowing from the next significant.
-    Note that [Y,1,dayOfYear,...] is accepted, but the result will be Y,m,d.
+    Day increments or decrements are handled by:
+        1. day=0: by decrementing month and adding the days in the new month.
+        2. day=32: by incrementing month.
+        3. negative components: by borrowing from the next significant.
+    
+    [Y, 1, dayOfYear,...] is accepted, but the result will be Y m, d.
 
     Parameters
     ----------
@@ -95,8 +95,7 @@ def normalize_time(time):
     --------
     >>> from hapiclient.timeUtil import normalize_time
     >>> time = [1997, 1, 140, 0, 0, 0, 0]
-    >>> time
-    [1997, 5, 20, 0, 0, 0, 0]
+    >>> print(time) # [1997, 5, 20, 0, 0, 0, 0]
     """
 
     while time[3] >= 24:
@@ -169,7 +168,7 @@ def normalize_time(time):
 
 
 def normalize_time_string(time):
-    """Normalizes time by expressing day of year and month and day of month, and moving hour="24" into the next day.
+    """Normalizes time by expressing day-of-year and month and day of month; move hour=24 into the next day.
 
     Notes
     -----
@@ -621,6 +620,9 @@ def add(base, offset):
 def array_to_iso_time(dt, dt_format):
     """Converts a 7-element list with [year, mon, day, hour, min, sec, nanos] to the given format.
 
+    # TODO: Use standard notation. See table at
+    https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior
+
     The following are valid inputs for dt_format:
         1. 'yyyy'
         2. 'yyyy-mm'
@@ -669,6 +671,8 @@ def array_to_iso_time(dt, dt_format):
         1998-01-02T00:00:00.156000
     """
 
+    # TODO: Why is a custom string formatter used? Either document
+    # why strftime() is not used or use it.
     if dt_format == 'yyyy':
         return '{}'.format(dt[0])
     if dt_format == 'yyyy-mm':
@@ -714,6 +718,11 @@ def array_to_iso_time(dt, dt_format):
 
 
 def get_dt_format(dateTimeString):
+
+    # TODO: Why is this function needed? Calculation is already done
+    # in hapitime2datetime(). Only need to move that calculation into
+    # a function.
+
     """Get the format of a time string.
 
     The format of the given time string can be one of the following:
@@ -760,6 +769,9 @@ def get_dt_format(dateTimeString):
     if 'T' in dateTimeString:
         date, time = dateTimeString.split('T')
 
+    # TODO: Why is a custom syntax used that differes from that used in
+    # strftime()? Need to document why or switch to using the standard
+    # syntax.        
     if y_re(date):
         dateTimeType += 'yyyy'
     elif ym_re(date):
@@ -819,9 +831,24 @@ def reformat_iso_time_alt(form_to_match, given_form):
         3. Failed to convert from yyyy-doy to yyyy
         4. Failed to convert from yyyy-doy to yyyy-mm
 
+
+    # TODO: Why not use strftime and strptime for this function?
+
+    import isodate
+    given = '2000-01-01T00:00'
+    ref = '2001-001'
+
+    dt_given = isodate.parse_datetime(given)
+    format_ref = get_dt_format(ref) # Use code from hapitime2datetime()
+    print(format_ref)
+    converted = dt_given.strftime(format_ref)
+
+    print(converted)
+
     """
 
     form_to_match_format = get_dt_format(form_to_match)
+
     dt = iso_time_to_array(given_form)
     res = array_to_iso_time(dt, form_to_match_format)
 

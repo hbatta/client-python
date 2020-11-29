@@ -1,4 +1,4 @@
-from hapiclient.timeUtil import *
+from timeUtil import *
 
 
 def test_reformat_iso_time():
@@ -220,11 +220,11 @@ def test_reformat_iso_time_alt(logging=False):
     ym_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2]))$', x)
     ymd_re = lambda x: re.match(r'^([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))$', x)
     ydoy_re = lambda x: re.match(r'^([12]\d{3}-[0123]\d{2})$', x)
+    padz = lambda x: x if 'Z' in x else x + 'Z'
 
     for _ in range(10):
 
         random.seed(10)
-        padz = lambda x: x if 'Z' in x else x + 'Z'
 
         # conversion
 
@@ -235,7 +235,11 @@ def test_reformat_iso_time_alt(logging=False):
         # given_form_modified = reformat_iso_time(form_to_match, given_form)
 
         if hapitime2datetime(padz(given_form_modified)) != hapitime2datetime(padz(given_form)):
-            print("Mismatch: ", given_form_modified, given_form, hapitime2datetime(padz(given_form_modified)), hapitime2datetime(padz(given_form)))
+            print("Mismatch: ", 
+                given_form_modified, 
+                given_form, 
+                hapitime2datetime(padz(given_form_modified)), 
+                hapitime2datetime(padz(given_form)))
             assert False
 
         assert bool(ydoy_re(given_form_modified))
@@ -350,9 +354,12 @@ if __name__ == '__main__':
     '''
 
     logging = True
-    tests = [test_reformat_iso_time, test_normalize_time_string, test_iso_time_to_array, test_day_of_year,
-             test_array_to_iso_time, test_get_dt_format, test_reformat_iso_time_alt]
-    for test in tests:
-        if logging:
-            print("Calling " + test.__name__)
-        test()
+    test_reformat_iso_time_alt(logging)
+
+    if False:
+        tests = [test_reformat_iso_time, test_normalize_time_string, test_iso_time_to_array, test_day_of_year,
+                 test_array_to_iso_time, test_get_dt_format, test_reformat_iso_time_alt]
+        for test in tests:
+            if logging:
+                print("Calling " + test.__name__)
+            test()
