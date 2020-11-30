@@ -923,6 +923,66 @@ def hapi(*args, **kwargs):
         else:
             return data, meta
 
+def hapitime_format_str(Time):
+
+    d = 0
+    # Catch case where no trailing Z
+    # Technically HAPI ISO 8601 must have trailing Z:
+    # https://github.com/hapi-server/data-specification/blob/master/hapi-dev/HAPI-data-access-spec-dev.md#representation-of-time
+    if not re.match(r".*Z$", Time[0]):
+        d = 1
+
+    # Parse date part
+    # If h=True then hour given.
+    # If hm=True, then hour and minute given.
+    # If hms=True, them hour, minute, and second given.
+    (h, hm, hms) = (False, False, False)
+
+    if len(Time[0]) == 4 or (len(Time[0]) == 5 and Time[0][-1] == "Z"):
+        fmt = '%Y'
+    elif re.match(r"[0-9]{4}-[0-9]{3}", Time[0]):
+        # YYYY-DOY format
+        fmt = "%Y-%j"
+        if len(Time[0]) >= 12 - d:
+            h = True
+        if len(Time[0]) >= 15 - d:
+            hm = True
+        if len(Time[0]) >= 18 - d:
+            hms = True
+    elif re.match(r"[0-9]{4}-[0-9]{2}", Time[0]):
+        # YYYY-MM-DD format
+        fmt = "%Y-%m"
+        if len(Time[0]) > 8:
+            fmt = fmt + "-%d"
+        if len(Time[0]) >= 14 - d:
+            h = True
+        if len(Time[0]) >= 17 - d:
+            hm = True
+        if len(Time[0]) >= 20 - d:
+            hms = True
+    else:
+        # TODO: Also check for invalid time string lengths.
+        # Should use JSON schema regular expressions for allowed versions of ISO 8601.
+        error('First time value %s is not a valid HAPI Time' % Time[0])
+
+    fmto = fmt
+    if h:
+        fmt = fmt + "T%H"
+    if hm:
+        fmt = fmt + ":%M"
+    if hms:
+        fmt = fmt + ":%S"
+
+    if re.match(r".*\.[0-9].*$", Time[0]):
+        fmt = fmt + ".%f"
+    if re.match(r".*\.$", Time[0]) or re.match(r".*\.Z$", Time[0]):
+        fmt = fmt + "."
+
+    if re.match(r".*Z$", Time[0]):
+        fmt = fmt + "Z"
+
+    return fmt
+
 
 def hapitime2datetime(Time, **kwargs):
     """Convert HAPI timestamps to Python datetimes.
@@ -1048,61 +1108,7 @@ def hapitime2datetime(Time, **kwargs):
 
     pythonDateTime = np.empty(len(Time), dtype=object)
 
-    d = 0
-    # Catch case where no trailing Z
-    # Technically HAPI ISO 8601 must have trailing Z:
-    # https://github.com/hapi-server/data-specification/blob/master/hapi-dev/HAPI-data-access-spec-dev.md#representation-of-time
-    if not re.match(r".*Z$", Time[0]):
-        d = 1
-
-    # Parse date part
-    # If h=True then hour given.
-    # If hm=True, then hour and minute given.
-    # If hms=True, them hour, minute, and second given.
-    (h, hm, hms) = (False, False, False)
-
-    if len(Time[0]) == 4 or (len(Time[0]) == 5 and Time[0][-1] == "Z"):
-        fmt = '%Y'
-    elif re.match(r"[0-9]{4}-[0-9]{3}", Time[0]):
-        # YYYY-DOY format
-        fmt = "%Y-%j"
-        if len(Time[0]) >= 12 - d:
-            h = True
-        if len(Time[0]) >= 15 - d:
-            hm = True
-        if len(Time[0]) >= 18 - d:
-            hms = True
-    elif re.match(r"[0-9]{4}-[0-9]{2}", Time[0]):
-        # YYYY-MM-DD format
-        fmt = "%Y-%m"
-        if len(Time[0]) > 8:
-            fmt = fmt + "-%d"
-        if len(Time[0]) >= 14 - d:
-            h = True
-        if len(Time[0]) >= 17 - d:
-            hm = True
-        if len(Time[0]) >= 20 - d:
-            hms = True
-    else:
-        # TODO: Also check for invalid time string lengths.
-        # Should use JSON schema regular expressions for allowed versions of ISO 8601.
-        error('First time value %s is not a valid HAPI Time' % Time[0])
-
-    fmto = fmt
-    if h:
-        fmt = fmt + "T%H"
-    if hm:
-        fmt = fmt + ":%M"
-    if hms:
-        fmt = fmt + ":%S"
-
-    if re.match(r".*\.[0-9].*$", Time[0]):
-        fmt = fmt + ".%f"
-    if re.match(r".*\.$", Time[0]) or re.match(r".*\.Z$", Time[0]):
-        fmt = fmt + "."
-
-    if re.match(r".*Z$", Time[0]):
-        fmt = fmt + "Z"
+    fmt = hapitime_format_str(Time)
 
     # TODO: Will using pandas.to_datetime here with fmt work?
     try:
@@ -1119,7 +1125,7 @@ def hapitime2datetime(Time, **kwargs):
             error("HAPI Times must have trailing Z. Time[" + str(i) + "] = " + Time[i] + " does not have trailing Z.")
 
     toc = time.time() - tic
-    log("Manual processing time = %.4fs, Input = %s, fmto = %s, fmt = %s\n" % (toc, Time[0], fmto, fmt), opts)
+    log("Manual processing time = %.4fs, Input = %s, fmt = %s\n" % (toc, Time[0], fmt), opts)
 
     if reshape:
         pythonDateTime = np.reshape(pythonDateTime, shape)
