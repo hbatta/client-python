@@ -923,6 +923,59 @@ def hapi(*args, **kwargs):
         else:
             return data, meta
 
+def hapitime_reformat(form_to_match, given_form):
+
+    print('ref:       {}\ngiven:     {}'.format(form_to_match, given_form))
+
+    if 'T' in given_form:
+        dt_given = isodate.parse_datetime(given_form)
+    else:
+        # Remove trailing Z b/c parse_date does not implement of date with
+        # trailing Z, which is valid IS8601.
+        dt_given = isodate.parse_date(given_form[0:-1])
+
+    # Get format string, e.g., %Y-%m-%dT%H
+    format_ref = hapitime_format_str([form_to_match])
+
+    if %f, 
+        converted = hapitime_reformat(form_to_match_nofraction, given_form_nofraction)
+
+    given_fractional = ...
+    match_fractional = ...
+
+    if len(given_fractional) > len(match_fractional):
+        converted = converted[0:len(match_fractional)-1] + "Z"
+    elif:
+        padz = "0"*(len(match_fractional) - len(given_fractional))
+        converted = converted[0:len(converted)-1] + padz + "Z"
+    else:
+        converted = converted[0:len(converted)-1] + given_fractional + "Z"
+
+    # if match_precision < given_precision
+    # to match  2001-01-01T00:00:00.12345678Z
+    # match_precision = 8
+    # given     2001-01-01T00:00:00.123456789Z'
+    # given_precision = 9
+    # truncate given to match_precision
+
+    # if match_precision > given_precision
+    # to match  2001-01-01T00:00:00.123456789Z
+    # match_precision = 9
+    # given     2001-01-01T00:00:00.12345678Z'
+    # given_precision = 8
+    # pad given with 9-8 zeros
+
+    # Otherwise, append given form fractional part.
+    # converted = converted + converted_fractional.
+
+    converted = dt_given.strftime(format_ref)
+    
+    if len(converted) > len(form_to_match):
+        converted = converted[0:len(form_to_match)-1] + "Z"
+    print('converted: {}\nref fmt:   {}'.format(converted, format_ref))
+    print('----')
+    return converted
+
 def hapitime_format_str(Time):
 
     d = 0
