@@ -1046,14 +1046,14 @@ def hapitime2datetime(Time, **kwargs):
     # Could save memory at cost of speed by decoding at each iteration below, e.g.
     # Time[i] -> Time[i].decode('utf-8')
 
+    pythonDateTime = np.empty(len(Time), dtype=object)
+
     d = 0
     # Catch case where no trailing Z
     # Technically HAPI ISO 8601 must have trailing Z:
     # https://github.com/hapi-server/data-specification/blob/master/hapi-dev/HAPI-data-access-spec-dev.md#representation-of-time
     if not re.match(r".*Z$", Time[0]):
         d = 1
-
-    pythonDateTime = np.empty(len(Time), dtype=object)
 
     # Parse date part
     # If h=True then hour given.
@@ -1063,11 +1063,9 @@ def hapitime2datetime(Time, **kwargs):
 
     if len(Time[0]) == 4 or (len(Time[0]) == 5 and Time[0][-1] == "Z"):
         fmt = '%Y'
-        to = 5
     elif re.match(r"[0-9]{4}-[0-9]{3}", Time[0]):
         # YYYY-DOY format
         fmt = "%Y-%j"
-        to = 9
         if len(Time[0]) >= 12 - d:
             h = True
         if len(Time[0]) >= 15 - d:
@@ -1077,10 +1075,8 @@ def hapitime2datetime(Time, **kwargs):
     elif re.match(r"[0-9]{4}-[0-9]{2}", Time[0]):
         # YYYY-MM-DD format
         fmt = "%Y-%m"
-        to = 8
         if len(Time[0]) > 8:
             fmt = fmt + "-%d"
-            to = 11
         if len(Time[0]) >= 14 - d:
             h = True
         if len(Time[0]) >= 17 - d:
