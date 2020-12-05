@@ -953,13 +953,7 @@ def hapitime_reformat(form_to_match, given_form):
         converted = hapitime_reformat(form_to_match+'Z', given_form+'Z')
         converted = converted.strip('Z')
         
-        if  len(form_to_match_fractional) < len(given_form_fractional):
-            converted_fractional = given_form_fractional[:len(form_to_match_fractional)]
-        elif len(form_to_match_fractional) > len(given_form_fractional):
-            converted_fractional = '{:0<{}}'.format(given_form_fractional, len(form_to_match_fractional))
-        else:
-            converted_fractional = given_form_fractional
-
+        converted_fractional = '{:0<{}.{}}'.format(given_form_fractional, len(form_to_match_fractional), len(form_to_match_fractional))
         converted = converted + '.' + converted_fractional
 
         if 'Z' in format_ref:
@@ -1183,3 +1177,9 @@ def hapitime2datetime(Time, **kwargs):
         pythonDateTime = np.reshape(pythonDateTime, shape)
 
     return pythonDateTime
+
+
+if __name__ == '__main__':
+
+    # print(hapitime_reformat('1989-01-01T00:00:00.0Z', '1989-01-01T00:00:00.00Z'))
+    print(hapitime_reformat('1989-01-01T00:00:00.00Z', '1989-001T00:00:00.0Z'))
