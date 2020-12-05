@@ -937,36 +937,35 @@ def hapitime_reformat(form_to_match, given_form):
     # Get format string, e.g., %Y-%m-%dT%H
     format_ref = hapitime_format_str([form_to_match])
 
-    if %f, 
-        converted = hapitime_reformat(form_to_match_nofraction, given_form_nofraction)
+    if '%f' in format_ref:
+        form_to_match = form_to_match.strip('Z')
+        form_to_match_fractional = form_to_match.split('.')[-1]
+        form_to_match = ''.join(form_to_match.split('.')[:-1])
 
-    given_fractional = ...
-    match_fractional = ...
+        given_form_fractional = '000000000'
+        given_form_fmt = hapitime_format_str([given_form])
+        given_form = given_form.strip('Z')
 
-    if len(given_fractional) > len(match_fractional):
-        converted = converted[0:len(match_fractional)-1] + "Z"
-    elif:
-        padz = "0"*(len(match_fractional) - len(given_fractional))
-        converted = converted[0:len(converted)-1] + padz + "Z"
-    else:
-        converted = converted[0:len(converted)-1] + given_fractional + "Z"
+        if '%f' in given_form_fmt:
+            given_form_fractional = given_form.split('.')[-1]
+            given_form = ''.join(given_form.split('.')[:-1])
 
-    # if match_precision < given_precision
-    # to match  2001-01-01T00:00:00.12345678Z
-    # match_precision = 8
-    # given     2001-01-01T00:00:00.123456789Z'
-    # given_precision = 9
-    # truncate given to match_precision
+        converted = hapitime_reformat(form_to_match+'Z', given_form+'Z')
+        converted = converted.strip('Z')
+        
+        if  len(form_to_match_fractional) < len(given_form_fractional):
+            converted_fractional = given_form_fractional[:len(form_to_match_fractional)]
+        elif len(form_to_match_fractional) > len(given_form_fractional):
+            converted_fractional = '{:0<{}}'.format(given_form_fractional, len(form_to_match_fractional))
+        else:
+            converted_fractional = given_form_fractional
 
-    # if match_precision > given_precision
-    # to match  2001-01-01T00:00:00.123456789Z
-    # match_precision = 9
-    # given     2001-01-01T00:00:00.12345678Z'
-    # given_precision = 8
-    # pad given with 9-8 zeros
+        converted = converted + '.' + converted_fractional
 
-    # Otherwise, append given form fractional part.
-    # converted = converted + converted_fractional.
+        if 'Z' in format_ref:
+            return converted + 'Z'
+        
+        return converted
 
     converted = dt_given.strftime(format_ref)
     
