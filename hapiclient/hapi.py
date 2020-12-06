@@ -533,12 +533,12 @@ def hapi(*args, **kwargs):
 
             resD = list(resD)
 
-            from hapiclient.timeUtil import reformat_iso_time_alt
+            from hapiclient.hapi import hapitime_reformat
 
-            START = reformat_iso_time_alt(resD[0]['Time'][0].decode('UTF-8'), START)
+            START = hapitime_reformat(resD[0]['Time'][0].decode('UTF-8'), START)
             resD[0] = resD[0][resD[0]['Time'] >= bytes(START, 'UTF-8')]
 
-            STOP = reformat_iso_time_alt(resD[-1]['Time'][0].decode('UTF-8'), STOP)
+            STOP = hapitime_reformat(resD[-1]['Time'][0].decode('UTF-8'), STOP)
             resD[-1] = resD[-1][resD[-1]['Time'] < bytes(STOP, 'UTF-8')]
 
             data = np.concatenate(resD)
@@ -924,6 +924,7 @@ def hapi(*args, **kwargs):
             return data, meta
 
 def hapitime_reformat(form_to_match, given_form):
+    """Reformat a given HAPI ISO 8601 time to match format of another HAPI ISO 8601 time."""
 
     print('ref:       {}\ngiven:     {}'.format(form_to_match, given_form))
 
@@ -970,6 +971,7 @@ def hapitime_reformat(form_to_match, given_form):
     return converted
 
 def hapitime_format_str(Time):
+    """Determine the time format string for a HAPI ISO 8601 time"""
 
     d = 0
     # Catch case where no trailing Z
@@ -1177,9 +1179,3 @@ def hapitime2datetime(Time, **kwargs):
         pythonDateTime = np.reshape(pythonDateTime, shape)
 
     return pythonDateTime
-
-
-if __name__ == '__main__':
-
-    # print(hapitime_reformat('1989-01-01T00:00:00.0Z', '1989-01-01T00:00:00.00Z'))
-    print(hapitime_reformat('1989-01-01T00:00:00.00Z', '1989-001T00:00:00.0Z'))

@@ -1,6 +1,7 @@
 import isodate
 from datetime import datetime
 from hapiclient import hapi, hapitime2datetime
+from hapiclient.hapi import hapitime_reformat
 from hapiclient.test.readcompare import equal
 
 compare_logging = True
@@ -30,26 +31,26 @@ opts0 = {'logging': hapi_logging, 'usecache': False, 'cache': False}
 td = {
         "P1Y":
             {
-                "start": "1970-01-02T01:50:00",
-                "stop": "1970-08-03T06:50:00"
+                "start": "1970-01-02T01:50:00Z",
+                "stop": "1970-08-03T06:50:00Z"
         },
         "P1M": {
-                "start": "1971-06-02T01:50:00",
-                "stop": "1974-08-03T06:50:00"
+                "start": "1971-06-02T01:50:00Z",
+                "stop": "1974-08-03T06:50:00Z"
         },
         "P1D": {
                 "server": 'http://hapi-server.org/servers/SSCWeb/hapi',
                 "dataset": 'ace',
                 "parameters": 'X_GSM',
-                "start": "2000-01-01T00:00:00.000",
-                "stop": "2000-01-10T00:00:00.000"
+                "start": "2000-01-01T00:00:00.000Z",
+                "stop": "2000-01-10T00:00:00.000Z"
         },
         "PT1H": {
                 "server": "http://hapi-server.org/servers/TestData2.0/hapi",
                 "dataset": "dataset1",
                 "parameters": "scalar",
-                "start": "1970-01-01T00:00:00.000",
-                "stop": "1970-01-01T05:00:00.000"
+                "start": "1970-01-01T00:00:00.000Z",
+                "stop": "1970-01-01T05:00:00.000Z"
         }
 }
 
@@ -115,9 +116,11 @@ def test_chunk_threshold():
 
     # Default chunk size for 1-second data is P1D. No chunking performed if
     # stop-start < PT1D/2. 
-    start = '1971-07-01T06:21:00Z'
+    start = td[key]['start']
     stop = hapitime2datetime(start) + isodate.parse_duration(chunk)/3
-    stop = datetime.isoformat(stop[0])
+    import pdb;pdb.set_trace()
+    print(stop)
+    stop = datetime.isoformat(stop[0])[0:19]
 
     # Reference result
     opts1 = cat(opts0, {'dt_chunk': None})
@@ -134,74 +137,76 @@ def test_timeformats():
     # Data are efficiently subsetted using a NumPy operation of the form
     # data['Time'][ data['Time'] >= bytes('2000-01-01T00', 'UTF-8')]
     # Internally, the start and stop strings must be converted to 
-    # the ISO 8601 format of the data. So if the data time stamps are in the
-    # the format %Y-%jTMM and start/stop in %Y-%m-%dTMM:SS, start and stop
-    # must be be transformed to the data format and precision.
+    # the ISO 8601 format of the data.
 
-    # The following tests the possible combinations of start, stop, data
-    # time formats.
+    # The following tests the possible combinations of start, stop, and
+    # data time formats.
 
     key = "PT1H"
+    s = td[key]['server']
+    d = td[key]['dataset']
+    p = td[key]['parameters']
+
+    start_ymd = td[key]['start']
+    start_doy = hapitime_reformat('1989-272T00:00:00.000Z',start_ymd)
+
+    stop_ymd = td[key]['stop']
+    stop_doy = hapitime_reformat('1989-272T00:00:00.000Z',stop_ymd)
 
     # Reference result.
     # start: %Y-%m-%d, stop: %Y-%m-%d, data: %Y-%m-%d
     opts1 = {'usecache': False, 'cache': False, 'dt_chunk': None}
-    start = '1989-09-29T00:00:00.000Z'
-    stop  = '1989-10-01T00:00:00.000Z'
-    data1, meta1 = hapi(td[key]['server'], td[key]['dataset'], td[key]['parameters'], start, stop, **opts1)
+    data1, meta1 = hapi(s, d, p, start_ymd, stop_ymd, **opts1)
 
     opts = {'usecache': False, 'cache': False, 'dt_chunk': 'infer'}
 
     # start: %Y-%m-%d, stop: %Y-%j, data: %Y-%m-%d
-    start = '1989-09-29T00:00:00.000Z'
-    stop  = '1989-274T00:00:00.000Z'
-    data, meta = hapi(td[key]['server'], td[key]['dataset'], td[key]['parameters'], start, stop, **opts)
+    data, meta = hapi(s, d, p, start_ymd, stop_doy, **opts)
     compare(data1, data, meta1, meta, opts1, opts)
 
     # start: %Y-%j, stop: %Y-%m-%d, data: %Y-%m-%d
-    start = '1989-272T00:00:00.000Z'
-    stop = '1989-10-01T00:00:00.000Z'
-    data, meta = hapi(td[key]['server'], td[key]['dataset'], td[key]['parameters'], start, stop, **opts)
+    data, meta = hapi(s, d, p, start_doy, stop_ymd, **opts)
     compare(data1, data, meta1, meta, opts1, opts)
 
     # start: %Y-%j, stop: %Y-%j, data: %Y-%m-%d
-    start = '1989-272T00:00:00.000Z'
-    stop = '1989-274T00:00:00.000Z'
-    data, meta = hapi(td[key]['server'], td[key]['dataset'], td[key]['parameters'], start, stop, **opts)
+    data, meta = hapi(s, d, p, start_doy, stop_doy, **opts)
     compare(data1, data, meta1, meta, opts1, opts)
 
     ############################################################################
     # Switch to use a server that serves data in %Y-%j format. Change to
     # TestData server when it has a data set served in %Y-%j format.
     ############################################################################
-    key = "PT1H"
+
+    key = "P1D"
+
+    s = td[key]['server']
+    d = td[key]['dataset']
+    p = td[key]['parameters']
+
+    start_ymd = td[key]['start']
+    start_doy = hapitime_reformat('1989-272T00:00:00.000Z',start_ymd)
+
+    stop_ymd = td[key]['stop']
+    stop_doy = hapitime_reformat('1989-272T00:00:00.000Z',stop_ymd)
 
     # Reference result
     # start: %Y-%m-%d, stop: %Y-%m-%d, data: %Y-%j
-    start = '1989-09-29T00:00:00.000Z'
-    stop = '1989-10-01T00:00:00.000Z'
-    data1, meta1 = hapi(td[key]['server'], td[key]['dataset'], td[key]['parameters'], start, stop, **opts1)
+    data1, meta1 = hapi(s, d, p, start_ymd, stop_ymd, **opts1)
 
     # start: %Y-%m-%d, stop: %Y-%j, data: %Y-%j
-    start = '1989-09-29T00:00:00.000Z'
-    stop = '1989-274T00:00:00.000Z'
-    data, meta = hapi(td[key]['server'], td[key]['dataset'], td[key]['parameters'], start, stop, **opts)
+    data, meta = hapi(s, d, p, start_ymd, stop_doy, **opts)
     compare(data1, data, meta1, meta, opts1, opts)
 
     # start: %Y-%j, stop: %Y-%m-%d, data: %Y-%j
-    start = '1989-272T00:00:00.000Z'
-    stop = '1989-10-01T00:00:00.000Z'
-    data, meta = hapi(td[key]['server'], td[key]['dataset'], td[key]['parameters'], start, stop, **opts)
+    data, meta = hapi(s, d, p, start_doy, stop_ymd, **opts)
     compare(data1, data, meta1, meta, opts1, opts)
 
     # start: %Y-%j, stop: %Y-%j, data: %Y-%j
-    start = '1989-272T00:00:00.000Z'
-    stop = '1989-274T00:00:00.000Z'
-    data, meta = hapi(td[key]['server'], td[key]['dataset'], td[key]['parameters'], start, stop, **opts)
+    data, meta = hapi(s, d, p, start_doy, stop_doy, **opts)
     compare(data1, data, meta1, meta, opts1, opts)
 
+
 if __name__ == '__main__':
-    test_chunks()
-    test_chunk_threshold()
+    #test_chunks()
     test_chunk_threshold()
     test_timeformats()
