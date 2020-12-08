@@ -50,8 +50,6 @@ def subset(meta, params):
             params_reordered.append(pm[i])
     meta['parameters'] = pa
 
-    # import pdb;pdb.set_trace()
-
     params_reordered_str = ','.join(params_reordered)
 
     if not params == params_reordered_str:
@@ -148,24 +146,6 @@ def hapiopts():
     """
 
     return opts
-
-
-def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts):
-    START = pSTART + (i * pDELTA)
-    START = str(START.date())+'T'+str(START.time())
-
-    STOP = pSTART + ((i + 1) * pDELTA)
-    STOP = str(STOP.date()) + 'T' + str(STOP.time())
-
-    data, meta = hapi(
-        SERVER,
-        DATASET,
-        PARAMETERS,
-        START,
-        STOP,
-        **opts
-    )
-    return data, meta
 
 
 def hapi(*args, **kwargs):
@@ -464,8 +444,10 @@ def hapi(*args, **kwargs):
                 opts['dt_chunk'] = 'P1Y'
 
         if opts['n_chunks'] is not None or opts['dt_chunk'] is not None:
+
             padz = lambda x: x if 'Z' in x else x + 'Z'
-            pSTART, pSTOP = hapitime2datetime(padz(START))[0], hapitime2datetime(padz(STOP))[0]
+            pSTART = hapitime2datetime(padz(START))[0]
+            pSTOP  = hapitime2datetime(padz(STOP))[0]
 
             if opts['dt_chunk']:
                 pDELTA = isodate.parse_duration(opts['dt_chunk'])
@@ -497,7 +479,6 @@ def hapi(*args, **kwargs):
 
             n_chunks = opts['n_chunks']
             opts['n_chunks'] = None
-            dt_chunk = opts['dt_chunk']
             opts['dt_chunk'] = None
 
             backend = 'sequential'
@@ -505,17 +486,32 @@ def hapi(*args, **kwargs):
             if opts['parallel']:
                 backend = 'threading'
 
-                # Threads are best for IO tasks or tasks involving external systems because threads can combine their
-                # work more efficiently. Processes need to pickle their results to combine them which takes time.
-                
+                # multiprocessing was not tested. It may work, but will
+                # need a speed comparison with threading.
                 # backend = 'multiprocessing'
-                # opts['n_parallel'] = multiprocessing.cpu_count() - 1
 
             log('backend = {}'.format(backend), opts)
 
             verbose = 0
             if opts.get('logging'):
                 verbose = 100
+
+            def nhapi(SERVER, DATASET, PARAMETERS, pSTART, pDELTA, i, **opts):
+                START = pSTART + (i * pDELTA)
+                START = str(START.date())+'T'+str(START.time())
+            
+                STOP = pSTART + ((i + 1) * pDELTA)
+                STOP = str(STOP.date()) + 'T' + str(STOP.time())
+            
+                data, meta = hapi(
+                    SERVER,
+                    DATASET,
+                    PARAMETERS,
+                    START,
+                    STOP,
+                    **opts
+                )
+                return data, meta
 
             resD, resM = zip(
                 *Parallel(n_jobs=opts['n_parallel'], verbose=verbose, backend=backend)(
@@ -1133,11 +1129,16 @@ def hapitime2datetime(Time, **kwargs):
         error("HAPI Times must have trailing Z. First element of input Time array does not have trailing Z.")
 
     try:
-        # Will fail if no pandas, if YYYY-DOY format and other valid ISO 8601
-        # dates such as 2001-01-01T00:00:03.Z
+        # This is the fastest conversion option. But will fail on
+        #   YYYY-DOY format and other valid ISO 8601
+        #   dates such as 2001-01-01T00:00:03.Z
         # When infer_datetime_format is used, TimeStamp object returned.
         # When format=... is used, datetime object is used.
-        Time = pandas.to_datetime(Time, infer_datetime_format=True).to_pydatetime()
+        # ts_localize is not redundant - although all HAPI timestamps will
+        # have trailing Z, in some cases, infer_datetime_format will not return
+        # a timezone-aware Timestamp.
+        # TODO: Use hapitime_format_str() and pass this as format=...
+        Time = pandas.to_datetime(Time, infer_datetime_format=True).tz_localize(tzinfo).to_pydatetime()
         if reshape:
             Time = np.reshape(Time, shape)
         toc = time.time() - tic

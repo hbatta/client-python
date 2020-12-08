@@ -118,9 +118,9 @@ def test_chunk_threshold():
     # stop-start < PT1D/2. 
     start = td[key]['start']
     stop = hapitime2datetime(start) + isodate.parse_duration(chunk)/3
-    import pdb;pdb.set_trace()
-    print(stop)
-    stop = datetime.isoformat(stop[0])[0:19]
+    #print(stop)
+    #import pdb;pdb.set_trace()
+    stop = datetime.isoformat(stop[0])[0:19] + "Z"
 
     # Reference result
     opts1 = cat(opts0, {'dt_chunk': None})
@@ -207,6 +207,6 @@ def test_timeformats():
 
 
 if __name__ == '__main__':
-    #test_chunks()
+    test_chunks()
     test_chunk_threshold()
     test_timeformats()

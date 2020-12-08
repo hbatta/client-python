@@ -1,7 +1,6 @@
-import isodate
-from hapiclient.hapi import hapitime2datetime, hapitime_reformat
+from hapiclient.hapi import hapitime_reformat
 
-
+# See comments in test_hapitime2datetime.py for execution options.
 
 def test_hapitime_reformat(logging=False):
 
@@ -62,7 +61,6 @@ def test_hapitime_reformat(logging=False):
         for j in range(i + 1, len(dts)):
             given_form = dts[j]
             given_form_modified = hapitime_reformat(form_to_match, given_form)
-            #assert hapitime2datetime(given_form_modified) == hapitime2datetime(form_to_match)
             assert given_form_modified == form_to_match
             
     # padding
@@ -72,7 +70,8 @@ def test_hapitime_reformat(logging=False):
         for j in range(i + 1, len(dts)):
             given_form = dts[j]
             given_form_modified = hapitime_reformat(form_to_match, given_form)
-            #assert hapitime2datetime(given_form_modified) == hapitime2datetime(form_to_match)
             assert given_form_modified == form_to_match
 
-test_hapitime_reformat()
+
+if __name__ == '__main__':
+    test_hapitime_reformat()
